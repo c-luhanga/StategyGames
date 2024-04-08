@@ -15,9 +15,7 @@ Core Principles
 Each game is meticulously designed around core OOP principles such as encapsulation, inheritance, and polymorphism. The architecture is built for code reusability and maintainability, guided by interfaces and abstract classes. GitHub Copilot has been instrumental in refining the game logic and accelerating the development process, illustrating the potential of AI in programming.
 
 Join the Journey
-StrategyGames is more than just a collection of games; it's an educational journey into the heart of OOP, blending classic game design with the innovative use of AI tools. Whether you're a student, educator, or game development enthusiast, this repository offers valuable insights and engaging gameplay experiences.
-
-We welcome contributions and feedback as we continue to expand and refine our game collection. Dive into the code, explore the strategies, and embark on your own journey of discovery and development.
+StrategyGames is more than just a collection of games; it's an educational journey into the heart of OOP, blending classic game design with the innovative use of AI tools.
 
 Explore StrategyGames and embrace the challenge of strategic gameplay combined with the art of programming.
 
