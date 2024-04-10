@@ -6,8 +6,11 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import BoardGames.Board;
 import BoardGames.Board.InvalidMoveException;
@@ -81,15 +84,32 @@ public class BeehiveBoard implements Board {
         // Implementation of BeeHiveMove
         int row;
         int col;
+        public boolean SWAP;
+        public int previousOwner;
 
         public BeeHiveMove() {
             this.row = -1;
             this.col = -1;
+            this.SWAP = false;
         }
 
-        public BeeHiveMove(int row2, int col2) {
-            this.row = row2;
-            this.col = col2;
+        public BeeHiveMove(BeeHiveMove move) {
+            this.row = move.row;
+            this.col = move.col;
+            this.SWAP = move.SWAP;
+            previousOwner = move.previousOwner;
+        }
+
+        public BeeHiveMove(int row, int col) {
+            this.row = row;
+            this.col = col;
+            this.SWAP = false;
+        }
+
+        public BeeHiveMove(boolean swap) {
+            this.row = -1;
+            this.col = -1;
+            this.SWAP = swap;
         }
 
         @Override
@@ -104,63 +124,78 @@ public class BeehiveBoard implements Board {
 
         @Override
         public void write(OutputStream os) throws IOException {
-            os.write(((row + 1) << 4) | (col + 1));
+            if (SWAP)
+                os.write(0);
+            else
+                os.write(((row + 1) << 4) | (col + 1));
+
         }
 
         @Override
         public void read(InputStream is) throws IOException {
             // Implementation of read method
             int b = is.read();
-            row = (b >> 4) - 1;
-            col = (b & 0x0F) - 1;
+            if (b == -1) {
+                throw new IOException("End of stream");
+            }
+            if (b == 0) {
+                this.SWAP = true;
+                return;
+            } else {
+                row = (b >> 4) - 1;
+                col = (b & 0x0F) - 1;
+            }
         }
 
         @Override
         public void fromString(String s) throws IOException {
             // Implementation of fromString method
-            String[] parts = s.split(",");
-            if (parts.length != 2) {
-                throw new IOException("Invalid move string");
-            }
-            try {
-                row = Integer.parseInt(parts[0]) - 1;
-                col = Integer.parseInt(parts[1]) - 1;
-                if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE)
+            if (s.equals("SWAP")) {
+                this.SWAP = true;
+                return;
+            } else {
+                String[] parts = s.split(",");
+                if (parts.length != 2) {
                     throw new IOException("Invalid move string");
-            } catch (NumberFormatException e) {
-                throw new IOException("Invalid move string");
+                }
+                try {
+                    row = Integer.parseInt(parts[0]);
+                    col = Integer.parseInt(parts[1]);
+                } catch (NumberFormatException e) {
+                    throw new IOException("Invalid move string");
+                }
             }
-        }
-
-        public boolean isSwap() {
-            return this.row == -1 && this.col == -1;
         }
 
         @Override
         public String toString() {
-            return (row + 1) + "," + (col + 1);
+            return (row) + "," + (col);
         }
     }
 
-    private static final int BOARD_SIZE = 11;
-    private Cell[][] board = new Cell[BOARD_SIZE][BOARD_SIZE];
-    private int currentPlayer;
-    private List<Move> moveHistory = new ArrayList<>();
-    private Connections connections;
-    private int currentWinner;
-    private List<BridgeGroup> groups;
+    private Cell[][] board;
+    private int currentPlayer = 1;
+    private List<BeeHiveMove> moveHistory = new ArrayList<>();
+    private List<Connections> connections = new ArrayList<>();
+    private List<BridgeGroup> bridgeGroups = new ArrayList<>();
+    private boolean hasSwapped = false;
+    private static final int SIZE = 11;
+    private BridgeGroup longestGroup = null;
+    private boolean isGameOver = false;
+    private int totalPlayer1 = 0;
+    private int totalPlayer2 = 0;
 
     public BeehiveBoard() {
-        // Initialize the board and set the starting player
-        Connections connections = new Connections();
-        groups = new ArrayList<>();
-        this.connections = new Connections();
-        for (int i = 0; i < BOARD_SIZE; i++) {
-            for (int j = 0; j < BOARD_SIZE; j++) {
-                board[i][j] = new Cell();
+        // Initialize the board with empty cells
+        board = new Cell[SIZE][SIZE];
+        for (int row = 0; row < SIZE; row++) {
+            for (int col = 0; col < SIZE; col++) {
+                Cell currentCell = new Cell(row, col);
+                currentCell.computeAdjacentLocations();
+                currentCell.computeBridgedLocations();
+                board[row][col] = currentCell;
             }
         }
-        currentPlayer = 1; // or 0, depending on how you define players
     }
 
     @Override
@@ -170,149 +205,169 @@ public class BeehiveBoard implements Board {
 
     @Override
     public void applyMove(Move m) throws Board.InvalidMoveException {
-        BeeHiveMove move = (BeeHiveMove) m;
-        if (!isValidMove(move)) {
-            throw new Board.InvalidMoveException("Invalid move");
-        }
-        if (move.isSwap()) {
-            currentPlayer = -currentPlayer;
-        } else {
-            board[move.row][move.col].setState(currentPlayer);
-            Location location = new Location(move.row, move.col);
-            updateGroups(location, currentPlayer);
-            currentPlayer = -currentPlayer;
-        }
-        moveHistory.add(move);
-    }
+        try {
+            // Check if the game is already over
+            if (isGameOver) {
+                throw new Board.InvalidMoveException("Game is over");
+            }
 
-    private void updateGroups(Location location, int player) {
-        List<BridgeGroup> adjacentGroups = new ArrayList<>();
-        for (BridgeGroup group : groups) {
-            if (group.getPlayer() == player) {
-                for (Location cell : group.getCells()) {
-                    if (connections.isAdjacent(location, cell) || connections.isBridge(location, cell)) {
-                        adjacentGroups.add(group);
+            // Cast and validate the move
+            BeeHiveMove move = new BeeHiveMove(BeeHiveMove.class.cast(m));
+            if (move.row < 1 || move.row > 11 || move.col < 1 || move.col > 11) {
+                throw new Board.InvalidMoveException("Move out of bounds");
+            }
+
+            // Clear bridge groups before applying new move
+            bridgeGroups.clear();
+
+            // Handle swap move
+            if (move.SWAP && moveHistory.size() == 1 && !hasSwapped && currentPlayer == 2) {
+                // Perform the swap
+                BeeHiveMove firstMove = moveHistory.get(0);
+                board[firstMove.row - 1][firstMove.col - 1].setOwner(currentPlayer);
+                hasSwapped = true;
+                currentPlayer = 3 - currentPlayer;
+            }
+            // Handle regular move
+            else {
+                // Check if the target cell is already occupied
+                if (board[move.row - 1][move.col - 1].player != 0) {
+                    throw new Board.InvalidMoveException("Invalid move");
+                }
+                // Apply the move
+                board[move.row - 1][move.col - 1].setOwner(currentPlayer);
+
+                // Remove any connections that are no longer valid due to this move
+                Connections connectionToRemove = null;
+                for (Connections conn : connections) {
+                    if ((conn.cell1.getRow() == move.row - 1 && conn.cell1.getCol() == move.col - 1) ||
+                            (conn.cell2.getRow() == move.row - 1 && conn.cell2.getCol() == move.col - 1)) {
+                        connectionToRemove = conn;
                         break;
                     }
                 }
-            }
-        }
+                if (connectionToRemove != null) {
+                    connections.remove(connectionToRemove);
+                }
 
-        if (adjacentGroups.isEmpty()) {
-            // No existing group found; create a new group for this move
-            BridgeGroup newGroup = new BridgeGroup(this);
-            newGroup.add(location);
-            newGroup.setPlayer(player);
-            groups.add(newGroup);
-        } else {
-            // Add this cell to the first adjacent group
-            BridgeGroup firstGroup = adjacentGroups.get(0);
-            firstGroup.add(location);
-
-            // Merge all adjacent groups into the first group
-            for (int i = 1; i < adjacentGroups.size(); i++) {
-                BridgeGroup group = adjacentGroups.get(i);
-                firstGroup.merge(group);
-                groups.remove(group);
+                // Switch to the next player
+                currentPlayer = 3 - currentPlayer;
             }
+
+            // After handling the move, add it to move history and reevaluate bridge groups
+            moveHistory.add(move);
+            recalculateBridgeGroups();
+
+            // Check if the game is won
+            int gameState = getValue();
+            if (gameState == WIN || gameState == -WIN) {
+                isGameOver = true;
+            }
+        } catch (Board.InvalidMoveException e) {
+            System.out.println(e.getMessage());
+            System.out.println("Possible moves: " + getValidMoves());
+            throw e; // Optionally rethrow the exception if you want to signal an invalid move beyond
+                     // this method
         }
     }
 
-    private boolean isAdjacentOrBridged(Location location1, Location location2) {
-        int rowDiff = Math.abs(location1.getRow() - location2.getRow());
-        int colDiff = Math.abs(location1.getCol() - location2.getCol());
-        return (rowDiff <= 1 && colDiff <= 1) || (rowDiff <= 2 && colDiff <= 2);
+    private void recalculateBridgeGroups() {
+        // First, reset the 'visited' and 'group' properties for all cells on the board.
+        for (Cell[] row : board) {
+            for (Cell c : row) {
+                c.visited = false;
+                c.group = null;
+            }
+        }
+
+        // Clear the list of existing bridge groups before recalculating.
+        bridgeGroups.clear();
+
+        // Iterate over each cell in the board to identify and form new bridge groups.
+        for (int row = 0; row < SIZE; row++) {
+            for (int col = 0; col < SIZE; col++) {
+                Cell currentCell = board[row][col];
+                // Check if the cell has not been visited and belongs to a player.
+                if (!currentCell.visited && currentCell.player != 0) {
+                    BridgeGroup newGroup = new BridgeGroup();
+                    // Perform a depth-first search starting from the current cell to find
+                    // all connected cells that form a bridge group.
+                    BFS(currentCell, newGroup, currentCell.player);
+                    // Add the newly formed bridge group to the list of bridge groups.
+                    bridgeGroups.add(newGroup);
+                }
+            }
+        }
     }
 
     @Override
+    // Initially, treat each cell as an independent group. Through Depth-First
+    // Search (DFS),
+    // explore each cell to identify and assemble groups of connected cells, where
+    // connectivity
+    // is determined by adjacency and bridging, and each cell belongs to the same
+    // player. A cell,
+    // once visited, should not be reassigned to another group. Connectivity is
+    // established either
+    // through direct adjacency or via bridging, following specific game rules. This
+    // process utilizes
+    // supporting methods and classes (e.g., Cell, Connection, BridgeGroup, and
+    // Location) for implementation
+    // details.
+    // The game's outcome is determined by the 'isWinning' method, which evaluates
+    // if a player has successfully
+    // connected their cells across the board either from top to bottom or from left
+    // to right. The game is
+    // designed to have a definitive winner, hence it does not support a draw; the
+    // 'isWinning' method is
+    // pivotal in determining the game's winner based on the established connection
+    // criteria.
     public int getValue() {
-        // Check for win conditions and return the appropriate value
-        // Return an integer indicating whether player 0 (negative value)
-        // or player 1 (positive value) is winning, or 0 if the game is a draw
-        // (0 value). A value of WIN indicates a win for player 0, and -WIN
-        // indicates a win for player 1
-        // Check for win conditions based on the connectivity of cells across the board
-        // Return WIN if player 0 wins, -WIN if player 1 wins, or 0 if the game is a
-        // draw
-        // Use the BridgeGroup objects to determine if a player has successfully formed
-        // a
-        // connecting path across the board
+        longestGroup = null;
+        totalPlayer1 = 0;
+        totalPlayer2 = 0;
+        bridgeGroups.clear();
 
-        // Initialize the value to 0
-        // int player1Score = 0;
-        // int player2Score = 0;
+        // Mark all cells as unvisited in preparation for group calculation.
+        for (int row = 0; row < SIZE; row++) {
+            for (int col = 0; col < SIZE; col++) {
+                board[row][col].visited = false;
+            }
+        }
 
-        // // Iterate over all cells in the board
-        // for (int row = 0; row < BOARD_SIZE; row++) {
-        // for (int col = 0; col < BOARD_SIZE; col++) {
-        // // Get the state of the current cell
-        // int state = board[row][col].getState();
+        // Identify and form bridge groups for cells that belong to a player and have
+        // not been visited.
+        for (int row = 0; row < SIZE; row++) {
+            for (int col = 0; col < SIZE; col++) {
+                if (!board[row][col].visited && board[row][col].player != 0) {
+                    BridgeGroup newGroup = new BridgeGroup();
+                    BFS(board[row][col], newGroup, board[row][col].player);
+                    bridgeGroups.add(newGroup);
 
-        // // If the cell is occupied by a player, check for connections
-        // if (state != 0) {
-        // // Create a new Location for the current cell
-        // Location location = new Location(row, col);
-
-        // // Check for connections from this location to another cell
-        // for (Location other : connections.getAdjacentLocations(location)) {
-        // if (board[other.getRow()][other.getCol()].getState() == state) {
-        // if (state == 1) {
-        // player1Score++;
-        // } else if (state == -1) {
-        // player2Score++;
-        // }
-        // }
-        // }
-        // }
-        // }
-        // }
-
-        // // Determine the winner based on the scores
-        // currentWinner = player1Score > player2Score ? 1 : -1;
-        // return player1Score > player2Score ? player1Score : -player2Score;
-
-        // Assess the current state of the board to calculate a score or advantage.
-        // Positive values indicate an advantage for Player 1, negative for Player 2,
-        // and zero for an even state.
-
-        int player1Score = 0;
-        int player2Score = 0;
-
-        // Evaluate each cell on the board for its contribution to the player's score
-        for (int row = 0; row < BOARD_SIZE; row++) {
-            for (int col = 0; col < BOARD_SIZE; col++) {
-                Cell cell = board[row][col];
-                if (cell.getState() == 1) { // Player 1 occupies the cell
-                    player1Score += 1; // Assign a base score for occupation
-                    // Further evaluate the cell's strategic importance
-                    // For example, proximity to forming a bridge might increase its value
-                    if (isPartOfBridge(cell)) {
-                        player1Score += 2; // Increment score for strategic positioning
-                    }
-                } else if (cell.getState() == -1) { // Player 2 occupies the cell
-                    player2Score += 1; // Assign a base score for occupation
-                    // Evaluate the cell's strategic importance
-                    if (isPartOfBridge(cell)) {
-                        player2Score += 2; // Increment score for strategic positioning
+                    // Accumulate the total weight for each player based on their bridge groups.
+                    if (board[row][col].player == 1) {
+                        totalPlayer1 += newGroup.getWeight(1);
+                    } else {
+                        totalPlayer2 += newGroup.getWeight(2);
                     }
                 }
             }
         }
 
-        // Evaluate the impact of bridge groups
-        for (BridgeGroup group : groups) {
-            if (group.getPlayer() == 1) {
-                // For Player 1, increase the score based on the group size or strategic value
-                player1Score += group.getCells().length; // Example: score increases with group size
-            } else if (group.getPlayer() == -1) {
-                // For Player 2, similarly increase the score
-                player2Score += group.getCells().length;
+        // Evaluate if any bridge group meets the winning criteria, indicating game
+        // completion.
+        for (BridgeGroup group : bridgeGroups) {
+            if (Winning(group)) {
+                longestGroup = group;
+                return group.getOwner() == 1 ? WIN : -WIN; // Return the win status based on the group's owner.
             }
         }
 
-        // Return the net score: positive for Player 1's advantage, negative for Player
-        // 2's
-        return player1Score - player2Score;
+        // If no winning group is found, calculate and return the difference in total
+        // weights as the game state.
+        // This implies the game continues, with the higher weight indicating the
+        // leading player.
+        return totalPlayer1 - totalPlayer2;
     }
 
     /**
@@ -324,296 +379,345 @@ public class BeehiveBoard implements Board {
      * @param cell The cell to check.
      * @return True if the cell is part of a bridge, false otherwise.
      */
-    private boolean isPartOfBridge(Cell cell) {
-        for (BridgeGroup group : groups) {
-            if (Arrays.asList(group.getCells()).contains(cell.getLocation())) {
-                return true; // The cell is part of a bridge group
+    private void BFS(Cell cell, BridgeGroup Bgroup, int player) {
+        // Skip if the cell has already been visited
+        if (cell.visited)
+            return;
+
+        cell.visited = true; // Mark the cell as visited
+
+        // Add the cell to the group if it belongs to the current player
+        if (cell.player == player) {
+            Bgroup.add(cell);
+        }
+
+        // Explore all adjacent cells
+        for (Location adjacentLocation : cell.adjacent) {
+            Cell adjacentCell = board[adjacentLocation.row][adjacentLocation.col];
+            // Recursively explore if the adjacent cell is unvisited and belongs to the same
+            // player
+            if (!adjacentCell.visited && adjacentCell.player == player) {
+                BFS(adjacentCell, Bgroup, player);
             }
         }
-        return false; // The cell is not part of any bridge group
+
+        // Explore all cells connected by bridges
+        for (Location bridgedLocation : cell.bridged) {
+            Cell bridgedCell = board[bridgedLocation.row][bridgedLocation.col];
+            // Check for valid bridges and if the bridged cell can be part of the group
+            if (!bridgedCell.visited && bridgedCell.player == player && isValidBridge(cell, bridgedCell)) {
+                BFS(bridgedCell, Bgroup, player);
+            }
+        }
     }
 
-    public int getCurrentWinner() {
-        return currentWinner;
+    public boolean isValidBridge(Cell firstCell, Cell secondCell) {
+        // Check if the bridge between two cells is valid
+        // Return true if the bridge is valid, false otherwise
+
+        // Add more conditions to check if the bridge is valid
+        // For example, check if the cells are adjacent and empty
+        // or if the cells are connected by a chain of adjacent cells
+
+        // If none of the conditions are met, the bridge is not valid
+        if (firstCell.player == secondCell.player) {
+            return false;
+        }
+
+        List<Location> intermediateLocations = commonLocations(firstCell, secondCell);
+        for (Location location : intermediateLocations) {
+            if (board[location.getRow()][location.getCol()].player != 0) {
+                return false;
+            }
+        }
+
+        return true;
+
+    }
+
+    private List<Location> commonLocations(Cell firstCell, Cell secondCell) {
+        // Recalculate adjacent locations for both cells to ensure up-to-date
+        // information
+        firstCell.computeAdjacentLocations();
+        secondCell.computeAdjacentLocations();
+
+        // Prepare lists to hold adjusted adjacent locations for comparison
+        List<Location> adjustedLocationsCellOne = new ArrayList<>();
+        List<Location> adjustedLocationsCellTwo = new ArrayList<>();
+
+        // Adjust and collect adjacent locations for the first cell
+        for (Location location : firstCell.adjacent) {
+            if (location != null) {
+                Location adjustedLocation = new Location(location.row + 1, location.col + 1);
+                adjustedLocationsCellOne.add(adjustedLocation);
+            }
+        }
+
+        // Adjust and collect adjacent locations for the second cell
+        for (Location location : secondCell.adjacent) {
+            if (location != null) {
+                Location adjustedLocation = new Location(location.row + 1, location.col + 1);
+                adjustedLocationsCellTwo.add(adjustedLocation);
+            }
+        }
+
+        // Determine the common locations between the two cells' adjacent locations
+        List<Location> commonLocations = new ArrayList<>();
+        for (Location location : adjustedLocationsCellOne) {
+            if (adjustedLocationsCellTwo.contains(location)) {
+                commonLocations.add(location);
+            }
+        }
+
+        return commonLocations;
     }
 
     @Override
     public List<? extends Move> getValidMoves() {
-        // Generate a list of all valid moves
-        // Return a list of all valid moves for the current player. An empty list
-        // indicates that the game is over.
-
+        // Generate and return a list of all legal moves for the current player
+        // based on the current state of the board and the game's rules
         List<BeeHiveMove> validMoves = new ArrayList<>();
-        for (int i = 0; i < BOARD_SIZE; i++) {
-            for (int j = 0; j < BOARD_SIZE; j++) {
-                if (board[i][j].isEmpty()) {
-                    validMoves.add(new BeeHiveMove(i, j));
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                if (board[i][j].player == 0) {
+                    validMoves.add(new BeeHiveMove(i + 1, j + 1));
                 }
             }
         }
+        if (moveHistory.size() == 1 && !hasSwapped && currentPlayer == 2) {
+            validMoves.add(new BeeHiveMove(true));
+        }
         return validMoves;
-
     }
 
     @Override
     public int getCurrentPlayer() {
-        // Return the current player
-        // Return 1 if player 0 is to move, -1 if player 1 is to move
+        // Return the identifier for the current player
         return currentPlayer;
     }
 
     @Override
     public List<? extends Move> getMoveHistory() {
         // Return the move history
-        // Return a history of all moves thus far applied to the board
         return moveHistory;
     }
 
     @Override
     public void undoMove() {
-        // Reverse the last move made
-        // Undo most recent move, or do nothing if no moves have been made
+        // Undo the last move made
+        if (moveHistory.isEmpty()) {
+            return;
+        }
 
-        if (!moveHistory.isEmpty()) {
-            BeeHiveMove lastMove = (BeeHiveMove) moveHistory.remove(moveHistory.size() - 1);
-            if (!lastMove.isSwap()) {
-                board[lastMove.row][lastMove.col].setState(0);
-            } else {
-                currentPlayer = -currentPlayer;
+        // Get the last move from the move history
+        BeeHiveMove lastMove = moveHistory.remove(moveHistory.size() - 1);
+
+        // Handle swap move
+        if (lastMove.SWAP) {
+            currentPlayer = 3 - currentPlayer;
+            hasSwapped = false;
+        }
+        // Handle regular move
+        else {
+            // Clear bridge groups before undoing the move
+            bridgeGroups.clear();
+
+            // Undo the move by resetting the cell state
+            board[lastMove.row - 1][lastMove.col - 1].setOwner(0);
+
+            // Switch back to the previous player
+            currentPlayer = 3 - currentPlayer;
+        }
+
+        // Recalculate bridge groups after undoing the move
+        recalculateBridgeGroups();
+
+        // Reset the game state if the game was over
+        if (isGameOver) {
+            isGameOver = false;
+        }
+    }
+
+    private boolean spansDirection(BridgeGroup Bgroup, String direction) {
+        List<Cell> edgeCells;
+        if ("leftToRight".equals(direction)) {
+            edgeCells = Bgroup.cells.stream().filter(cell -> cell.getCol() == 0).collect(Collectors.toList());
+        } else if ("topToBottom".equals(direction)) {
+            edgeCells = Bgroup.cells.stream().filter(cell -> cell.getRow() == 0).collect(Collectors.toList());
+        } else {
+            throw new IllegalArgumentException("Invalid direction");
+        }
+
+        Bgroup.cells.forEach(c -> c.visited = false); // Reset visited status for all cells in the group
+
+        Queue<Cell> queue = new LinkedList<>();
+        // Enqueue all edge cells as starting points for the BFS
+        edgeCells.forEach(startCell -> {
+            if (!startCell.visited) {
+                queue.add(startCell);
+                startCell.visited = true;
+            }
+        });
+
+        while (!queue.isEmpty()) {
+            Cell currentCell = queue.poll();
+            // Check for reaching the opposite edge based on the direction
+            if (("leftToRight".equals(direction) && currentCell.getCol() == SIZE - 1) ||
+                    ("topToBottom".equals(direction) && currentCell.getRow() == SIZE - 1)) {
+                return true;
+            }
+
+            // Enqueue all adjacent, unvisited cells belonging to the same player
+            for (Location loc : currentCell.adjacent) {
+                Cell adjCell = board[loc.row][loc.col];
+                if (!adjCell.visited && adjCell.player == currentCell.player) {
+                    queue.add(adjCell);
+                    adjCell.visited = true; // Mark as visited once added to the queue
+                }
             }
         }
+
+        return false; // If queue empties without reaching the target edge, it does not span in the
+                      // desired direction
+    }
+
+    private boolean Winning(BridgeGroup Bgroup) {
+        // Check if the bridge group spans from left to right or top to bottom
+        if (Bgroup == null || Bgroup.cells.isEmpty()) {
+            return false;
+        }
+        return spansDirection(Bgroup, "leftToRight") || spansDirection(Bgroup, "topToBottom");
     }
 
     @Override
+    // Return a string representation of the board
+    // Useful for debugging or displaying the game in a text-based interface
+    // Return a string representation of the board, with " b" for player 1's stones,
+    // " r" for player 2's stones, and " ." for empty cells. Offset each row right
+    // by 1/2 column to make the board look trapezoidal.
+    // Show row and column numbers on the left and top, using "T" and "E" for 10 and
+    // 11. If the game is over, show the cells in the winning group in upper case.
+
+    // Example:
+    // 1 2 3 4 5 6 7 8 9 T E
+    // 1 . . . . . . . . . . .
+    // 2 . . . . . . . . . . .
+    // 3 . . . . r . . . b . b
+    // 4 . . . . . . b . . . .
+    // 5 . . . r b . . b . b .
+    // 6 . . . r r . . . . . .
+    // 7 . . . . . . . . . . .
+    // 8 . . . r . . . . . . .
+    // 9 . . . . . . . . . . .
+    // T . . r . . . . . . . .
+    // E . . . . . . . . . . .
+    // Player 2's move
     public String toString() {
-        // Return a string representation of the board
-        // Useful for debugging or displaying the game in a text-based interface
-        // Return a string representation of the board, with " b" for player 1's stones,
-        // " r" for player 2's stones, and " ." for empty cells. Offset each row right
-        // by 1/2 column to make the board look trapezoidal.
-        // Show row and column numbers on the left and top, using "T" and "E" for 10 and
-        // 11. If the game is over, show the cells in the winning group in upper case.
-
-        // Example:
-        // 1 2 3 4 5 6 7 8 9 T E
-        // 1 . . . . . . . . . . .
-        // 2 . . . . . . . . . . .
-        // 3 . . . . r . . . b . b
-        // 4 . . . . . . b . . . .
-        // 5 . . . r b . . b . b .
-        // 6 . . . r r . . . . . .
-        // 7 . . . . . . . . . . .
-        // 8 . . . r . . . . . . .
-        // 9 . . . . . . . . . . .
-        // T . . r . . . . . . . .
-        // E . . . . . . . . . . .
-        // Player 2's move
-        BridgeGroup longestGroup = null;
-        for (BridgeGroup group : groups) {
-            if (longestGroup == null || group.size() > longestGroup.size()) {
-                longestGroup = group;
-            }
-        }
-
         StringBuilder sb = new StringBuilder();
-        String markers = " 1 2 3 4 5 6 7 8 9 T E\n";
-        sb.append(markers);
-        List<Cell> winningPath = null;
-        if (hasWon(1)) {
-            winningPath = dfs(0, 0, new boolean[BOARD_SIZE][BOARD_SIZE], 1);
-        } else if (hasWon(-1)) {
-            winningPath = dfs(0, 0, new boolean[BOARD_SIZE][BOARD_SIZE], -1);
-        }
-        for (int i = 0; i < BOARD_SIZE; i++) {
-            for (int j = 0; j < i; j++) {
+        // Add column headers
+        sb.append("  1 2 3 4 5 6 7 8 9 T E\n");
+
+        for (int row = 0; row < SIZE; row++) {
+            // Add row indentation for hexagonal appearance
+            for (int indent = 0; indent < row; indent++) {
                 sb.append(" ");
             }
-            sb.append(markers.charAt(i * 2));
-            sb.append(markers.charAt(i * 2 + 1));
-            for (int j = 0; j < BOARD_SIZE; j++) {
-                sb.append(" ");
-                int state = board[i][j].getState();
-                boolean isWinningCell = winningPath != null && winningPath.contains(board[i][j]);
-                Location location = new Location(i, j);
-                if (state == 1) {
-                    sb.append((isWinningCell || (longestGroup != null && longestGroup.contains(location))) ? "B" : "b");
-                } else if (state == -1) {
-                    sb.append((isWinningCell || (longestGroup != null && longestGroup.contains(location))) ? "R" : "r");
-                } else {
-                    sb.append(".");
+            // Add row header with 'T' and 'E' for 10 and 11
+            sb.append(row < 9 ? row + 1 : row == 9 ? "T" : "E").append(" ");
+
+            for (int col = 0; col < SIZE; col++) {
+                Cell cell = board[row][col];
+                char cellRepresentation = '.'; // Default for empty cell
+
+                // Check if the cell is part of the winning group, if the game is over
+                boolean isInWinningGroup = isGameOver && longestGroup != null && longestGroup.cells.contains(cell);
+
+                if (cell.player == 1) {
+                    cellRepresentation = isInWinningGroup ? 'B' : 'b'; // Uppercase 'B' for winning path, else 'b'
+                } else if (cell.player == 2) {
+                    cellRepresentation = isInWinningGroup ? 'R' : 'r'; // Uppercase 'R' for winning path, else 'r'
                 }
+
+                sb.append(cellRepresentation).append(" "); // Add cell representation and space for next cell
             }
-            sb.append("\n");
-        }
-        sb.append("Player " + (currentPlayer == 1 ? "1" : "2") + "'s move\n");
-        if (hasWon(1)) {
-            sb.append("Player 1 has won the game\n");
-        } else if (hasWon(-1)) {
-            sb.append("Player 2 has won the game\n");
+            sb.append("\n"); // New line at the end of each row
         }
 
-        for (BridgeGroup group : groups) {
-            // Print the group details
-            System.out.println("Group: " + group.toString());
-
-            // Print the cells in the group
-            for (Location cell : group.getCells()) {
-                System.out.println("  Cell: " + cell.toString());
-            }
+        // Optional: Append additional game state information
+        sb.append("Player ").append(currentPlayer == 1 ? "1" : "2").append("'s turn.\n");
+        if (isGameOver) {
+            sb.append("Player ").append(longestGroup.getOwner() == 1 ? "1 has won." : "2 has won.").append("\n");
         }
+
         return sb.toString();
 
-        // StringBuilder sb = new StringBuilder();
-        // String markers = " 1 2 3 4 5 6 7 8 9 T E\n";
-        // sb.append(markers);
-        // List<Cell> winningPath = null;
-        // if (hasWon(1)) {
-        // winningPath = dfs(0, 0, new boolean[BOARD_SIZE][BOARD_SIZE], 1);
-        // } else if (hasWon(-1)) {
-        // winningPath = dfs(0, 0, new boolean[BOARD_SIZE][BOARD_SIZE], -1);
-        // }
-        // for (int i = 0; i < BOARD_SIZE; i++) {
-        // for (int j = 0; j < i; j++) {
-        // sb.append(" ");
-        // }
-        // sb.append(markers.charAt(i * 2));
-        // sb.append(markers.charAt(i * 2 + 1));
-        // for (int j = 0; j < BOARD_SIZE; j++) {
-        // sb.append(" ");
-        // int state = board[i][j].getState();
-        // boolean isWinningCell = winningPath != null &&
-        // winningPath.contains(board[i][j]);
-        // if (state == 1) {
-        // sb.append(isWinningCell ? "B" : "b");
-        // } else if (state == -1) {
-        // sb.append(isWinningCell ? "R" : "r");
-        // } else {
-        // sb.append(".");
-        // }
-        // }
-        // sb.append("\n");
-        // }
-        // sb.append("Player " + (currentPlayer == 1 ? "1" : "2") + "'s move\n");
-        // return sb.toString();
     }
 
     private boolean hasWon(int i) {
-        // checks who has won based on the get value function
-        // result is used in the toString function to display the winning player in
-        // uppercase
-        return getValue() == i * WIN;
-    }
-
-    private boolean isValidMove(BeeHiveMove move) {
-        // Check if the move is valid based on game rules
-        // Return true if the move is valid, false otherwise
-
-        if (move.isSwap()) {
-            return true;
-        }
-
-        // Add more conditions to check if the move is valid
-        // For example, check if the cell at the move's row and column is empty
-        if (board[move.row][move.col].isEmpty()) {
-            return true;
-        }
-
-        // If none of the conditions are met, the move is not valid
-        return false;
-    }
-
-    public Connections getConnections() {
-
-        return connections;
-    }
-
-    private boolean isConnected(int player) {
-        boolean[][] visited = new boolean[BOARD_SIZE][BOARD_SIZE];
-        // For player 1, start from the top row
-        if (player == 1) {
-            for (int col = 0; col < BOARD_SIZE; col++) {
-                if (board[0][col].getState() == player) {
-                    if (dfs(0, col, visited, player) != null) {
-                        return true;
-                    }
-                }
-            }
-        }
-        // For player 2, start from the leftmost column
-        else if (player == -1) {
-            for (int row = 0; row < BOARD_SIZE; row++) {
-                if (board[row][0].getState() == player) {
-                    if (dfs(row, 0, visited, player) != null) {
-                        return true;
-                    }
-                }
+        // Check if the player has won the game
+        for (BridgeGroup group : bridgeGroups) {
+            if (group.getOwner() == i && Winning(group)) {
+                return true;
             }
         }
         return false;
     }
-
-    private List<Cell> dfs(int row, int col, boolean[][] visited, int player) {
-        if ((player == 1 && row == BOARD_SIZE - 1) || (player == -1 && col == BOARD_SIZE - 1)) {
-            return new ArrayList<>(Arrays.asList(board[row][col]));
-        }
-
-        visited[row][col] = true;
-
-        int[] dr = { -1, -1, 0, 0, 1, 1 };
-        int[] dc = { -1, 0, -1, 1, 0, 1 };
-
-        for (int i = 0; i < 6; i++) {
-            int newRow = row + dr[i];
-            int newCol = col + dc[i];
-            if (newRow >= 0 && newRow < BOARD_SIZE && newCol >= 0 && newCol < BOARD_SIZE
-                    && !visited[newRow][newCol] && board[newRow][newCol].getState() == player) {
-                List<Cell> path = dfs(newRow, newCol, visited, player);
-                if (path != null) {
-                    path.add(board[row][col]);
-                    return path;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    public boolean isPlayerOneSide(Location cell) {
-        return cell.getRow() == 0;
-    }
-
-    public boolean isOppositeSide(Location current, int player) {
-        return player == 1 ? current.getRow() == BOARD_SIZE - 1 : current.getCol() == BOARD_SIZE - 1;
-    }
-
-    public void addGroup(BridgeGroup group) {
-        groups.add(group);
-    }
-
-    public void removeGroup(BridgeGroup group) {
-        groups.remove(group);
-    }
-
-    public BridgeGroup getGroup(Location cell) {
-        // Iterate over all groups
-        for (BridgeGroup group : groups) {
-            // If the group contains the cell, return the group
-            if (group.contains(cell)) {
-                return group;
-            }
-        }
-
-        // If no group contains the cell, return null
-        return null;
-    }
-
-    public int getState(Location cell) {
-        return board[cell.getRow()][cell.getCol()].getState();
-    }
-
-    public void setGroup(Location cell, BridgeGroup bridgeGroup) {
-        // Set the group of the cell
-        board[cell.getRow()][cell.getCol()].setGroup(bridgeGroup);
-    }
-
 }
+
+// BridgeGroup longestGroup = null;
+// for (BridgeGroup group : groups) {
+// if (longestGroup == null || group.size() > longestGroup.size()) {
+// longestGroup = group;
+// }
+// }
+
+// StringBuilder sb = new StringBuilder();
+// String markers = " 1 2 3 4 5 6 7 8 9 T E\n";
+// sb.append(markers);
+// List<Cell> winningPath = null;
+// if (hasWon(1)) {
+// winningPath = dfs(0, 0, new boolean[BOARD_SIZE][BOARD_SIZE], 1);
+// } else if (hasWon(-1)) {
+// winningPath = dfs(0, 0, new boolean[BOARD_SIZE][BOARD_SIZE], -1);
+// }
+// for (int i = 0; i < BOARD_SIZE; i++) {
+// for (int j = 0; j < i; j++) {
+// sb.append(" ");
+// }
+// sb.append(markers.charAt(i * 2));
+// sb.append(markers.charAt(i * 2 + 1));
+// for (int j = 0; j < BOARD_SIZE; j++) {
+// sb.append(" ");
+// int state = board[i][j].getState();
+// boolean isWinningCell = winningPath != null &&
+// winningPath.contains(board[i][j]);
+// Location location = new Location(i, j);
+// if (state == 1) {
+// sb.append((isWinningCell || (longestGroup != null &&
+// longestGroup.contains(location))) ? "B" : "b");
+// } else if (state == -1) {
+// sb.append((isWinningCell || (longestGroup != null &&
+// longestGroup.contains(location))) ? "R" : "r");
+// } else {
+// sb.append(".");
+// }
+// }
+// sb.append("\n");
+// }
+// sb.append("Player " + (currentPlayer == 1 ? "1" : "2") + "'s move\n");
+// if (hasWon(1)) {
+// sb.append("Player 1 has won the game\n");
+// } else if (hasWon(-1)) {
+// sb.append("Player 2 has won the game\n");
+// }
+
+// for (BridgeGroup group : groups) {
+// // Print the group details
+// System.out.println("Group: " + group.toString());
+
+// // Print the cells in the group
+// for (Location cell : group.getCells()) {
+// System.out.println(" Cell: " + cell.toString());
+// }
+// }
+// return sb.toString();

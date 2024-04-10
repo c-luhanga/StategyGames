@@ -1,6 +1,10 @@
 package BoardGames;
 
 import java.util.Scanner;
+
+import javax.swing.plaf.synth.SynthTabbedPaneUI;
+import javax.swing.text.Style;
+
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -89,18 +93,9 @@ public class BoardTest {
                         String[] parts = command.split(" ");
                         int level = Integer.parseInt(parts[1]);
                         int moveCount = Integer.parseInt(parts[2]);
-                        for (int i = 0; i < moveCount; i++) {
-                            AiSolver.mmResult result = new AiSolver.mmResult();
-                            AiSolver.minimax(boardTest.currentBoard, Integer.MIN_VALUE, Integer.MAX_VALUE,
-                                    level, result);
-                            if (result.currentMove != null) {
-                                boardTest.applyMove();
-                                System.out.println("Move: " + result.currentMove);
-                                System.out.println(boardTest.currentBoard);
-                            } else {
-                                break;
-                            }
-                        }
+                        boardTest.testAiPlay(level, moveCount);
+                    } else {
+                        System.out.println("Unknown command: " + command);
                     }
             }
         }
@@ -390,4 +385,34 @@ public class BoardTest {
             }
         }
     }
+
+    private void testAi(int level) {
+        AiSolver.mmResult result = new AiSolver.mmResult();
+        AiSolver.minimax(currentBoard, Integer.MIN_VALUE, Integer.MAX_VALUE, level, result);
+        if (result.currentMove != null) {
+            doMove(result.currentMove.toString());
+        }
+    }
+
+    private void testAiPlay(int level, int moveCount) {
+        AiSolver.mmResult result = new AiSolver.mmResult();
+        for (int i = 0; i < moveCount; i++) {
+            AiSolver.minimax(currentBoard, Integer.MIN_VALUE, Integer.MAX_VALUE,
+                    level, result);
+            if (result.currentMove == null) {
+                break;
+            }
+            try {
+                currentBoard.applyMove(result.currentMove);
+            } catch (Board.InvalidMoveException e) {
+                System.out.println("Invalid move");
+            }
+            {
+                assert false;
+            }
+            System.out.println("Move: " + result.currentMove);
+            System.out.println(currentBoard);
+        }
+    }
+
 }

@@ -64,55 +64,87 @@ import java.util.List;
  */
 
 public class Cell {
-    private int state;
     private int row;
     private int col;
-    private List<Cell> adjacentCells;
-    private List<Cell> bridgedCells;
-    private BridgeGroup group;
+    private Location loc;
+    public int player = 0;
+    private int bridgeGroup = -1;
+    public BridgeGroup group;
+    public List<Location> adjacent = new ArrayList<>();
+    public List<Location> bridged = new ArrayList<>();
+    private int owner;
+    public boolean visited = false;
+    public boolean printed = false;
 
-    public Cell() {
-        this.state = 0;
-        this.row = 0;
-        this.col = 0;
-        this.adjacentCells = new ArrayList<>();
-        this.bridgedCells = new ArrayList<>();
-    }
+    private static final Location[] ADJACENT_OFFSETS = {
+            new Location(0, 1), new Location(1, 0), new Location(1, -1),
+            new Location(0, -1), new Location(-1, 0), new Location(-1, 1)
+    };
+
+    private static final Location[] BRIDGE_OFFSETS = {
+            new Location(-1, -1), new Location(-1, 2), new Location(-2, 1),
+            new Location(1, -2), new Location(1, 1), new Location(2, -1)
+    };
 
     public Cell(int row, int col) {
         this.row = row;
         this.col = col;
-        this.state = 0;
-        this.adjacentCells = new ArrayList<>();
-        this.bridgedCells = new ArrayList<>();
+        this.loc = new Location(row, col);
     }
 
-    public void setState(int state) {
-        this.state = state;
+    public void computeAdjacentLocations() {
+        adjacent.clear();
+        for (Location offset : ADJACENT_OFFSETS) {
+            Location adjacentLoc = new Location(row, col).add(offset);
+            if (adjacentLoc.inBounds()) {
+                adjacent.add(adjacentLoc);
+            }
+        }
     }
 
-    public int getState() {
-        return state;
+    public List<Location> getAdjacentLocations() {
+        List<Location> adjLocs = new ArrayList<>();
+        for (Location offset : ADJACENT_OFFSETS) {
+            Location adjacentLoc = new Location(row, col).add(offset);
+            if (adjacentLoc.inBounds()) {
+                adjLocs.add(adjacentLoc);
+            }
+        }
+        return adjLocs;
     }
 
-    public void addAdjacentCell(Cell cell) {
-        adjacentCells.add(cell);
+    public void computeBridgedLocations() {
+        bridged.clear();
+        for (Location offset : BRIDGE_OFFSETS) {
+            Location bridgeLoc = new Location(row, col).add(offset);
+            if (bridgeLoc.inBounds()) {
+                bridged.add(bridgeLoc);
+            }
+        }
     }
 
-    public void addBridgedCell(Cell cell) {
-        bridgedCells.add(cell);
+    public boolean contains(Cell other) {
+        return this.row == other.row && this.col == other.col;
     }
 
-    public List<Cell> getAdjacentCells() {
-        return adjacentCells;
+    public void setOwner(int owner) {
+        this.owner = owner;
+        this.player = owner; // Assuming player numbers are the same as owner numbers.
+        System.out.println(String.format("Cell at %d, %d is now owned by player %d.", loc.row + 1, loc.col + 1, owner));
     }
 
-    public List<Cell> getBridgedCells() {
-        return bridgedCells;
+    public int getOwner() {
+        return owner;
     }
 
-    public boolean isEmpty() {
-        return state == 0;
+    @Override
+    public String toString() {
+        return String.format("Cell at (%d, %d), State: %s, Adjacent cells: %d, Bridged cells: %d",
+                row, col, player == 0 ? "Empty" : "Player " + player, adjacent.size(), bridged.size());
+    }
+
+    public void setGroup(BridgeGroup bridgeGroup2) {
+        this.group = bridgeGroup2;
     }
 
     public int getRow() {
@@ -124,25 +156,6 @@ public class Cell {
     }
 
     public BridgeGroup getGroup() {
-        return this.group;
-    }
-
-    @Override
-    public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Cell at (").append(row).append(", ").append(col).append(")\n");
-        sb.append("State: ").append(state == 0 ? "Empty" : (state == 1 ? "Player 1" : "Player 2")).append("\n");
-        sb.append("Adjacent cells: ").append(adjacentCells.size()).append("\n");
-        sb.append("Bridged cells: ").append(bridgedCells.size()).append("\n");
-        return sb.toString();
-    }
-
-    public void setGroup(BridgeGroup bridgeGroup) {
-        // Set the group to which this cell belongs
-        this.group = bridgeGroup;
-    }
-
-    public Object getLocation() {
-        return new int[] { row, col };
+        return group;
     }
 }

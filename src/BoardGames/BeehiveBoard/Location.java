@@ -1,5 +1,7 @@
 package BoardGames.BeehiveBoard;
 
+import java.io.Serializable;
+
 /**
  * Location Class Development Guide for Beehive Game
  * 
@@ -65,9 +67,19 @@ package BoardGames.BeehiveBoard;
  * positions relative to a given Location.
  */
 
-public class Location {
-    private int row;
-    private int col;
+public class Location implements Serializable {
+    public int row;
+    public int col;
+    private static final int rows = 11;
+    private static final int cols = 11;
+    public static final Location[] ADJACENT_OFFSETS = {
+            new Location(-1, 0), // North
+            new Location(-1, 1), // Northeast
+            new Location(0, 1), // Southeast
+            new Location(1, 0), // South
+            new Location(1, -1), // Southwest
+            new Location(0, -1) // Northwest
+    };
 
     public Location(int row, int col) {
         this.row = row;
@@ -75,40 +87,31 @@ public class Location {
     }
 
     public boolean equals(Location other) {
-        return this.row == other.row && this.col == other.col;
+        if (this == other) {
+            return true;
+        }
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+        Location location = (Location) other;
+        return row == location.row && col == location.col;
     }
 
     public int hashCode() {
         return row * 31 + col;
     }
 
-    public boolean isAdjacent(Location other) {
-        int dx = other.col - this.col;
-        int dy = other.row - this.row;
-
-        // Check for adjacency based on the hexagonal grid geometry
-        return (dx == 0 && Math.abs(dy) == 1) || (dy == 0 && Math.abs(dx) == 1)
-                || (dx == -1 && dy == 1) || (dx == 1 && dy == -1);
+    public Location add(Location other) {
+        return new Location(row + other.row, col + other.col);
     }
 
-    public double calculateDistance(Location other) {
-        int dx = other.col - this.col;
-        int dy = other.row - this.row;
-
-        // Calculate the distance between two locations in the hexagonal grid
-        return Math.sqrt(dx * dx + dy * dy);
+    public boolean inBounds() {
+        return row >= 0 && row < rows && col >= 0 && col < cols;
     }
 
     @Override
     public String toString() {
         return "(" + row + ", " + col + ")";
-    }
-
-    public boolean isEmpty() {
-        if (row == 0 && col == 0) {
-            return true;
-        }
-        return false;
     }
 
     public int getRow() {
@@ -118,4 +121,5 @@ public class Location {
     public int getCol() {
         return col;
     }
+
 }

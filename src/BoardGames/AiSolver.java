@@ -13,7 +13,9 @@ public class AiSolver {
 
     static void minimax(Board brd, int min, int max, int level, mmResult best) {
         List<? extends Board.Move> moves = brd.getValidMoves();
-        if (level == 0 || brd.getValidMoves().isEmpty()) {
+        System.out.printf("level: %d, MinMax: (%d,%d)\n", level, min, max);
+
+        if (level == 0 || moves.isEmpty()) {
             best.Values = brd.getValue();
             best.currentMove = null;
             return;
@@ -21,12 +23,14 @@ public class AiSolver {
 
         if (brd.getCurrentPlayer() == 1) {
             best.Values = min;
+
             for (Board.Move move : moves) {
                 try {
                     brd.applyMove(move);
                 } catch (Exception e) {
                     assert false;
                 }
+
                 mmResult result = new mmResult();
                 minimax(brd, min, result.Values, level - 1, result);
                 if (result.Values > best.Values) {
@@ -38,7 +42,6 @@ public class AiSolver {
                 if (result.Values >= max) {
                     return;
                 }
-
             }
         } else {
             best.Values = max;

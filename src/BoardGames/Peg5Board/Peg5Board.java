@@ -17,6 +17,8 @@ public class Peg5Board implements Board {
         private Position from;
         private Position to;
         private int pieceType; // This could be encoded according to the game's rules
+        public int row;
+        public int col;
 
         @Override
         public void write(OutputStream os) throws IOException {

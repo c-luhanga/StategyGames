@@ -1,7 +1,9 @@
 package BoardGames.BeehiveBoard;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 
@@ -44,149 +46,89 @@ import java.util.Set;
  */
 
 public class BridgeGroup {
-    private Set<Location> cells;
-    private BeehiveBoard gameBoard;
-    private int player;
-    private static int nextId = 1;
-    private int id;
-
-    public BridgeGroup(BeehiveBoard gameBoard) {
-        this.gameBoard = gameBoard;
-        cells = new HashSet<>();
-        player = 0;
-        this.id = nextId++;
-    }
+    public List<Cell> cells = new ArrayList<>();
+    private List<Connections> connections = new ArrayList<>();
+    private int minRow = Integer.MAX_VALUE;
+    private int maxRow = Integer.MIN_VALUE;
+    private int minCol = Integer.MAX_VALUE;
+    private int maxCol = Integer.MIN_VALUE;
+    private int span = 0;
+    private int owner;
+    private Cell cell1;
+    private Cell cell2;
 
     public BridgeGroup() {
-        cells = new HashSet<>();
-        this.gameBoard = new BeehiveBoard();
-        player = 0;
-        this.id = nextId++;
+        cells = new ArrayList<Cell>();
+        minRow = Integer.MAX_VALUE;
+        maxRow = Integer.MIN_VALUE;
+        minCol = Integer.MAX_VALUE;
+        maxCol = Integer.MIN_VALUE;
     }
 
-    public int getId() {
-        return id;
+    public Cell getOtherCell(Cell cell) {
+        if (cell.equals(cell1)) {
+            return cell2;
+        } else if (cell.equals(cell2)) {
+            return cell1;
+        } else {
+            throw new IllegalArgumentException("Cell not found in group");
+        }
     }
 
-    public void addCell(Location cell) {
-        Set<BridgeGroup> connectedGroups = new HashSet<>();
-        for (Location other : gameBoard.getConnections().getAdjacentLocations(cell)) {
-            BridgeGroup otherGroup = gameBoard.getGroup(other);
-            if (otherGroup != null) {
-                connectedGroups.add(otherGroup);
-            }
-        }
-        if (player == 0) {
-            player = gameBoard.getState(cell);
-        }
+    public int getOwner() {
+        return owner;
+    }
 
-        // If the cell is connected to more than one group, merge them
-        if (connectedGroups.size() > 1) {
-            BridgeGroup mergedGroup = new BridgeGroup(gameBoard);
-            for (BridgeGroup group : connectedGroups) {
-                mergedGroup.merge(group);
-                gameBoard.removeGroup(group);
-            }
-            gameBoard.addGroup(mergedGroup);
-        }
+    public void formBridge(Cell c1, Cell c2) {
+        connections.add(new Connections());
+    }
 
-        // Add the cell to the group
+    public void add(Cell cell) {
+        if (cells.contains(cell))
+            return;
+
         cells.add(cell);
-        updateConnections(cell);
+        cell.setGroup(this); // Assume setGroup method in Cell class to handle setting group
+
+        updateSpanForPlayer(cell);
+        mergeGroupsIfNeeded(cell);
     }
 
-    void merge(BridgeGroup group) {
-        cells.addAll(group.cells);
-        for (Location cell : group.cells) {
-            gameBoard.setGroup(cell, this); // Update the gameBoard to reference the current group
-            updateConnections(cell);
-        }
-
-        gameBoard.removeGroup(group);
-    }
-
-    private void updateConnections(Location cell) {
-        // Check for adjacency with other cells in the group
-        for (Location other : cells) {
-            if (gameBoard.getConnections().isAdjacent(cell, other)) {
-                // Update adjacency
-                gameBoard.getConnections().addConnection(cell, other);
-            }
-            if (gameBoard.getConnections().isBridge(cell, other)) {
-                // Update bridging
-                gameBoard.getConnections().addBridge(cell, other);
-            }
-            for (Location bridged : gameBoard.getConnections().getBridgedLocations(cell, other)) {
-                cells.add(bridged);
-            }
+    private void updateSpanForPlayer(Cell cell) {
+        if (cell.getOwner() == 1) {
+            updateHorizontalSpan(cell);
+        } else if (cell.getOwner() == 2) {
+            updateVerticalSpan(cell);
         }
     }
 
-    public boolean isConnected(Location from, Location to) {
-        return gameBoard.getConnections().isConnected(from, to);
+    private void updateHorizontalSpan(Cell cell) {
+        minCol = Math.min(minCol, cell.getCol());
+        maxCol = Math.max(maxCol, cell.getCol());
+        span = Math.max(span, maxCol - minCol + 1);
     }
 
-    public boolean spansBoard() {
-        // Check if the group spans from one side to the other
-        for (Location cell : cells) {
-            if (gameBoard.isPlayerOneSide(cell) && spansToOppositeSide(cell, 1)) {
-                return true;
-            }
-            if (gameBoard.isPlayerOneSide(cell) && spansToOppositeSide(cell, 2)) {
-                return true;
-            }
-        }
-        return false;
+    private void updateVerticalSpan(Cell cell) {
+        minRow = Math.min(minRow, cell.getRow());
+        maxRow = Math.max(maxRow, cell.getRow());
+        span = Math.max(span, maxRow - minRow + 1);
     }
 
-    private boolean spansToOppositeSide(Location start, int player) {
-        Set<Location> visited = new HashSet<>();
-        Queue<Location> queue = new LinkedList<>();
-        queue.add(start);
-
-        while (!queue.isEmpty()) {
-            Location current = queue.poll();
-            visited.add(current);
-
-            if (gameBoard.isOppositeSide(current, player)) {
-                return true;
-            }
-
-            for (Location neighbor : gameBoard.getConnections().getAdjacentLocations(current)) {
-                if (!visited.contains(neighbor) && cells.contains(neighbor)) {
-                    queue.add(neighbor);
-                }
+    private void mergeGroupsIfNeeded(Cell cell) {
+        BridgeGroup otherGroup = cell.getGroup();
+        if (otherGroup != null && otherGroup != this) {
+            for (Cell otherCell : new ArrayList<>(otherGroup.cells)) {
+                this.add(otherCell); // Recursive call will handle updating group references
             }
         }
-        return false;
     }
 
-    public boolean contains(Location cell) {
-        return cells.contains(cell);
+    public int getSpan(int player) {
+        return player == 1 ? maxCol - minCol + 1 : maxRow - minRow + 1;
     }
 
-    public int size() {
-        return cells.size();
+    public int getWeight(int player) {
+        return cells.size() * getSpan(player);
     }
 
-    public int getPlayer() {
-        return player;
-    }
-
-    public void add(Location location) {
-        cells.add(location);
-    }
-
-    public Location[] getCells() {
-        return cells.toArray(new Location[0]);
-    }
-
-    @Override
-    public String toString() {
-        return "Group ID: " + id + ", Player: " + getPlayer() + ", Size: " + size() + ", Cells: " + cells;
-    }
-
-    public void setPlayer(int player) {
-        this.player = player;
-    }
 }
