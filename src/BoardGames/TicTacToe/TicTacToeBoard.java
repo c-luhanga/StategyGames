@@ -6,9 +6,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import BoardGames.Board;
-import BoardGames.Board.InvalidMoveException;
-import BoardGames.Board.Move;
+import BoardGames.Board_Interface.Board;
+import BoardGames.Board_Interface.Board.InvalidMoveException;
+import BoardGames.Board_Interface.Board.Move;
 
 public class TicTacToeBoard implements Board {
     public class TicTacToeMove implements Move, java.io.Serializable {
@@ -224,5 +224,5 @@ public class TicTacToeBoard implements Board {
     }
 
     // Inner class representing a Tic Tac Toe move
-
+    
 }

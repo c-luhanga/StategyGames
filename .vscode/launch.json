@@ -21,11 +21,11 @@
         },
         {
             "type": "java",
-            "name": "BoardTest",
+            "name": "BoardTestTicTacToe",
             "request": "launch",
             "mainClass": "BoardGames.BoardTest",
             "projectName": "BoardGames_c6ae8d3d",
-            "args": "BoardGames.TicTacToe.TicTacToeBoard"
+            "args": "BoardGames.TicTacToe.TicTacToeBoard > output.out",
         }
         ,
         {
