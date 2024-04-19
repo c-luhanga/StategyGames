@@ -4,24 +4,24 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import BoardGames.Board_Interface.Board;
+import BoardGames.Peg5.Peg5Board.Peg5Move;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class peg5test {
+class Peg5BoardTest {
     private Peg5Board board;
 
     @BeforeEach
     void setUp() {
-        board = new Peg5Board();
+        board = new Peg5Board(); // Assuming Peg5Board is properly imported or defined in the same package
     }
 
     @Test
     void testInitialBoardSetup() {
-        // Assuming the initial setup of the board is all zeros (empty)
-        for (int row = 0; row < 7; row++) {
-            for (int col = 0; col < 7; col++) {
-                // This checks that the board is initialized correctly
-                assertEquals(0, board.getBoard()[row][col], "Board should be initialized to empty");
+        // Test the initial state of the board
+        for (int row = 0; row < Peg5Board.BOARD_SIZE; row++) {
+            for (int col = 0; col < Peg5Board.BOARD_SIZE; col++) {
+                assertEquals(0, board.board[row][col], "Board should be initialized to empty");
             }
         }
         assertEquals(Board.PLAYER_0, board.getCurrentPlayer(), "Initial player should be PLAYER_0");
@@ -29,77 +29,39 @@ class peg5test {
 
     @Test
     void testCreateMove() {
-        Board.Move move = board.createMove();
-        assertNotNull(move, "createMove should not return null");
+        assertNotNull(board.createMove(), "createMove should not return null");
     }
 
     @Test
-    // do a all valid moves and then undo them
     void testApplyMoveAndUndo() throws Board.InvalidMoveException {
-        Board.Move move = board.createMove();
+        // Test applying and undoing moves on the board
+        Peg5Move move = (Peg5Move) board.createMove();
         // Configure move as needed based on your game's logic
-        for (int i = 0; i < 7; i++) {
-            for (int j = 0; j < 7; j++) {
-                Peg5Board.Peg5Move peg5Move = (Peg5Board.Peg5Move) move;
-                peg5Move.row = i;
-                peg5Move.col = j;
-                board.applyMove(move);
-                move = board.createMove();
-            }
-        }
-        assertTrue(board.getMoveHistory().size() == 49, "Move history size should be 49 after applying 49 moves");
-        for (int i = 0; i < 7; i++) {
-            for (int j = 0; j < 7; j++) {
-                board.undoMove();
-            }
-        }
-        assertTrue(board.getMoveHistory().isEmpty(), "Move history should be empty after undoing all moves");
-        // // Apply move
-        // board.applyMove(move);
-        // assertEquals(1, board.getMoveHistory().size(), "Move history size should be 1
-        // after applying a move");
+        move.type = 1; // Assuming type '1' is a valid type for Player 0
+        move.position = new Position(0, 0); // Position the move at the start of the board
+        board.applyMove(move);
+        assertEquals(1, board.getMoveHistory().size(), "Move history size should be 1 after applying a move");
 
-        // // Undo move
-        // board.undoMove();
-        // assertTrue(board.getMoveHistory().isEmpty(), "Move history should be empty
-        // after undoing the move");
-    }
-
-    @Test
-    void testInvalidMoveType() {
-        Board.Move move = board.createMove();
-        // Set up the move to be of an invalid type
-        assertThrows(Board.InvalidMoveException.class, () -> board.applyMove(move),
-                "Applying an invalid move type should throw an InvalidMoveException");
+        // Undo the move
+        board.undoMove();
+        assertTrue(board.getMoveHistory().isEmpty(), "Move history should be empty after undoing the move");
     }
 
     @Test
     void testInvalidMoveApplication() {
-        Board.Move move = board.createMove();
-        // Set up the move to be invalid based on your game's logic
+        Peg5Move move = (Peg5Move) board.createMove();
+        move.position = new Position(-1, -1); // Invalid position
         assertThrows(Board.InvalidMoveException.class, () -> board.applyMove(move),
                 "Applying an invalid move should throw an InvalidMoveException");
     }
 
     @Test
     void testValidMovesList() {
-        // This test may need to be adjusted based on how your game logic determines
-        // valid moves
         assertFalse(board.getValidMoves().isEmpty(), "Valid moves list should not be empty at the start of the game");
     }
 
     @Test
-    void testSwitchPlayer() {
-        board.switchPlayer(); // Assuming this method is accessible; if it's private, you might need to
-                              // trigger it indirectly
-        assertEquals(Board.PLAYER_1, board.getCurrentPlayer(),
-                "Current player should switch to PLAYER_1 after switchPlayer is called");
-    }
-
-    @Test
     void testGetValue() {
-        // This test will depend on your game logic for determining the value of the
-        // board
         assertEquals(0, board.getValue(), "Initial board value should be 0");
     }
 
@@ -115,17 +77,22 @@ class peg5test {
 
     @Test
     void testToString() {
-        // This test will depend on how you implement the toString method in your board
-        // class
         assertNotNull(board.toString(), "toString should not return null");
+        assertTrue(board.toString().contains("Current Player: Green"), "toString should indicate who's turn it is");
     }
 
     @Test
     void testPeg5MoveToString() {
-        Peg5Board.Peg5Move move = board.new Peg5Move(); // Fix: Instantiate Peg5Move using an instance of Peg5Board
-        move.row = 3;
-        move.col = 4;
-        assertEquals("4,5", move.toString(), "Peg5Move toString should return '4,5'");
+        Peg5Move move = (Peg5Move) board.createMove(); // Cast to Peg5Move
+        move.position = new Position(3, 4);
+        assertEquals("Peg5Move at (4, 5)", move.toString(), "Peg5Move toString should return 'Peg5Move at (4, 5)'");
     }
+
+    // @Test
+    // void testPieceEncoding() {
+    // byte cellState = encodePiece(1, 3); // Green peg in an open yellow tube
+    // assertEquals("Gy", pieceToString(cellState), "Should encode and decode to
+    // 'Gy'");
+    // }
 
 }

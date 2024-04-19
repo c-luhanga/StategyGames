@@ -19,29 +19,40 @@ public class Group {
 
     // Adds a position to the group
     public void addPosition(Position position) {
+        if (position.owner != owner) {
+            throw new IllegalArgumentException("Position owner does not match group owner.");
+        }
         positions.add(position);
     }
 
     // Check if this group forms a winning combination
     public boolean checkForWin() {
-        if (positions.size() < 5) {
-            return false; // A winning group must have exactly 5 pieces
+        // Require exactly 5 pieces to potentially form a winning pattern.
+        if (positions.size() != 5) {
+            return false;
         }
+
+        // Convert positions to a byte array using a traditional loop.
         byte[] line = new byte[positions.size()];
         for (int i = 0; i < positions.size(); i++) {
-            line[i] = positions.get(i).pieceType;
+            line[i] = positions.get(i).getPiece();
         }
+        // Check if the collected line is a winning combination.
         return WinPatterns.isWinningLine(line);
     }
 
     public int evaluateScore() {
+        // Scoring calculations require at least 3 pieces.
         if (positions.size() < 3) {
-            return 0; // Not enough pieces to form a meaningful pattern
+            return 0;
         }
+
+        // Convert positions to a byte array similarly as in checkForWin.
         byte[] line = new byte[positions.size()];
         for (int i = 0; i < positions.size(); i++) {
-            line[i] = positions.get(i).pieceType;
+            line[i] = positions.get(i).getPiece();
         }
+        // Calculate the score based on the current line configuration.
         return WinPatterns.evaluateLineScore(line, (byte) owner);
     }
 
