@@ -2,8 +2,6 @@ package BoardGames.AiSolver;
 
 import java.util.List;
 
-import javax.swing.border.Border;
-
 import BoardGames.Board_Interface.Board;
 import BoardGames.Board_Interface.Board.Move;
 

@@ -125,43 +125,67 @@ public class TicTacToeBoard implements Board {
         // for use with AI to determine best move
         // name variables properly and use constants for magic numbers
         // check for wins and draw before returning value
-        int value = 0;
+        int winValue = 1000000;
+        int draw = 0;
+        int[] rowSum = new int[SIZE];
+        int[] colSum = new int[SIZE];
+        int diag1Sum = 0;
+        int diag2Sum = 0;
+
+        // Sum up rows, columns, and diagonals
         for (int i = 0; i < SIZE; i++) {
-            int rowSum = 0;
-            int colSum = 0;
             for (int j = 0; j < SIZE; j++) {
-                rowSum += board[i][j];
-                colSum += board[j][i];
-            }
-            if (rowSum == SIZE || colSum == SIZE) {
-                return WIN;
-            } else if (rowSum == -SIZE || colSum == -SIZE) {
-                return -WIN;
-            }
-            value += rowSum + colSum;
-        }
-        int diag1 = 0;
-        int diag2 = 0;
-        for (int i = 0; i < SIZE; i++) {
-            diag1 += board[i][i];
-            diag2 += board[i][SIZE - i - 1];
-        }
-        if (diag1 == SIZE || diag2 == SIZE) {
-            return WIN;
-        } else if (diag1 == -SIZE || diag2 == -SIZE) {
-            return -WIN;
-        }
-        value += diag1 + diag2;
-        if (value == 0) {
-            for (int i = 0; i < SIZE; i++) {
-                for (int j = 0; j < SIZE; j++) {
-                    if (board[i][j] == EMPTY) {
-                        return 0;
-                    }
+                rowSum[i] += board[i][j];
+                colSum[j] += board[i][j];
+                if (i == j) {
+                    diag1Sum += board[i][j];
+                }
+                if (i + j == SIZE - 1) {
+                    diag2Sum += board[i][j];
                 }
             }
         }
-        return value;
+
+        // Check for a winning condition
+        for (int i = 0; i < SIZE; i++) {
+            if (rowSum[i] == SIZE || colSum[i] == SIZE) {
+                return winValue; // Player X wins
+            } else if (rowSum[i] == -SIZE || colSum[i] == -SIZE) {
+                return -winValue; // Player O wins
+            }
+        }
+
+        if (diag1Sum == SIZE || diag2Sum == SIZE) {
+            return winValue; // Player X wins
+        } else if (diag1Sum == -SIZE || diag2Sum == -SIZE) {
+            return -winValue; // Player O wins
+        }
+
+        // Check for draw
+        boolean full = true;
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                if (board[i][j] == EMPTY) {
+                    full = false;
+                    break;
+                }
+            }
+            if (!full)
+                break;
+        }
+        if (full) {
+            return draw; // Draw
+        }
+
+        // Return heuristic value: sum of rowSums and columnSums, accounting for
+        // diagonals
+        int heuristic = 0;
+        for (int i = 0; i < SIZE; i++) {
+            heuristic += rowSum[i] + colSum[i];
+        }
+        heuristic += diag1Sum + diag2Sum;
+
+        return heuristic;
     }
 
     @Override
@@ -203,6 +227,8 @@ public class TicTacToeBoard implements Board {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
+
+        // Board cells
         for (int i = 0; i < SIZE; i++) {
             for (int j = 0; j < SIZE; j++) {
                 if (board[i][j] == PLAYER_X) {
@@ -220,9 +246,24 @@ public class TicTacToeBoard implements Board {
                 sb.append("\n---------\n");
             }
         }
+
+        // Current player
+        sb.append("\nCurrent player: ");
+        sb.append(currentPlayer == PLAYER_X ? "X" : "O");
+
+        // Winner
+        int gameValue = getValue();
+        if (gameValue == 1000000) {
+            sb.append("\nWinner: X");
+        } else if (gameValue == -1000000) {
+            sb.append("\nWinner: O");
+        } else if (gameValue == 0) {
+            sb.append("\nDraw");
+        }
+
         return sb.toString();
     }
 
     // Inner class representing a Tic Tac Toe move
-    
+
 }

@@ -79,8 +79,31 @@ public class BridgeGroup {
         return owner;
     }
 
-    public void formBridge(Cell c1, Cell c2) {
-        connections.add(new Connections());
+    public void formBridge(Cell cell1, Cell cell2) {
+        // Add the cells to the group
+        add(cell1);
+        add(cell2);
+
+        // Create a connection between the cells
+        connections.add(new Connections(cell1, cell2));
+    }
+
+    public void addCell(Cell cell) {
+        // Add the cell to the group
+        cells.add(cell);
+
+        // Check if the new cell forms a bridge with any existing cell
+        for (Cell existingCell : cells) {
+            if (isBridge(cell, existingCell)) {
+                // Form a bridge between the new cell and the existing cell
+                formBridge(cell, existingCell);
+            }
+        }
+    }
+
+    private boolean isBridge(Cell cell, Cell existingCell) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'isBridge'");
     }
 
     public void add(Cell cell) {

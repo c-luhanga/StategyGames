@@ -5,92 +5,175 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
 import BoardGames.Board_Interface.Board;
 
 public class Peg5Board implements Board {
-    public class Peg5Move implements Board.Move {
-        // Member variables and implementations for Move interface methods
+    public class Peg5Move implements Board.Move, Serializable {
+        public byte type; // Type of piece (peg, open tube, closed tube)
+        public Position position; // Target position of the move
+        public boolean isTransfer; // Indicates if this is a transfer move
+        public Position fromPosition; // Original position for transfer moves
 
-        private Position from;
-        private Position to;
-        private int pieceType; // This could be encoded according to the game's rules
-        public int row;
-        public int col;
+        // Constructors
+        public Peg5Move() {
+            this.type = 0;
+            this.position = new Position(currentPlayer, currentPlayer);
+            this.isTransfer = false;
+            this.fromPosition = new Position(currentPlayer, currentPlayer);
+        }
+
+        public Peg5Move(byte type, Position position, boolean isTransfer, Position fromPosition) {
+            this.type = type;
+            this.position = position;
+            this.isTransfer = isTransfer;
+            this.fromPosition = fromPosition;
+        }
 
         @Override
         public void write(OutputStream os) throws IOException {
-            DataOutputStream dos = new DataOutputStream(os);
-            // Example serialization: write positions and piece type
-            dos.writeInt(from.getRow());
-            dos.writeInt(from.getColumn());
-            dos.writeInt(to.getRow());
-            dos.writeInt(to.getColumn());
-            dos.writeInt(pieceType);
+            ByteBuffer buffer = ByteBuffer.allocate(10); // Allocate enough space
+            buffer.put(type);
+            buffer.putInt(position.getRow());
+            buffer.putInt(position.getColumn());
+            if (isTransfer) {
+                buffer.put((byte) 1); // Indicate transfer
+                buffer.putInt(fromPosition.getRow());
+                buffer.putInt(fromPosition.getColumn());
+            } else {
+                buffer.put((byte) 0); // Not a transfer
+            }
+            os.write(buffer.array());
         }
 
         @Override
         public void read(InputStream is) throws IOException {
-            DataInputStream dis = new DataInputStream(is);
-            // Example deserialization: read positions and piece type
-            from = new Position(dis.readInt(), dis.readInt(), col, 0);
-            to = new Position(dis.readInt(), dis.readInt(), col, 0);
-            pieceType = dis.readInt();
+            byte[] data = new byte[10]; // Match the write size
+            is.read(data);
+            ByteBuffer buffer = ByteBuffer.wrap(data);
+            this.type = buffer.get();
+            int row = buffer.getInt();
+            int col = buffer.getInt();
+            this.position = new Position(row, col);
+            byte transferFlag = buffer.get();
+            if (transferFlag == 1) {
+                this.isTransfer = true;
+                row = buffer.getInt();
+                col = buffer.getInt();
+                this.fromPosition = new Position(row, col);
+            } else {
+                this.isTransfer = false;
+            }
         }
 
         @Override
-        public void fromString(String s) {
-            // Implement parsing from a string representation
+        public void fromString(String s) throws IOException {
+            try {
+                s = s.trim(); // Remove any leading or trailing spaces
+                String[] parts = s.split("\\s+"); // Split by whitespace
+                String typePart = parts[0];
+
+                // Determine the type based on the string
+                switch (typePart.toLowerCase()) {
+                    case "peg":
+                        this.type = 1; // Assume 1 for peg
+                        break;
+                    case "open":
+                        this.type = 2; // Assume 2 for open tube
+                        break;
+                    case "closed":
+                        this.type = 3; // Assume 3 for closed tube
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unknown piece type: " + typePart);
+                }
+
+                // Parse the position part, assuming format "(row,col)"
+                String positionPart = parts[1];
+                positionPart = positionPart.replaceAll("[()]", ""); // Remove parentheses
+                String[] coordinates = positionPart.split(",");
+                int row = Integer.parseInt(coordinates[0].trim()) - 1; // Convert to 0-based index
+                int col = Integer.parseInt(coordinates[1].trim()) - 1; // Convert to 0-based index
+                this.position = new Position(row, col);
+
+                // Check if there is a transfer part
+                if (s.contains("<-")) {
+                    this.isTransfer = true;
+                    String fromPositionPart = parts[3]; // Part after "<-"
+                    fromPositionPart = fromPositionPart.replaceAll("[()]", ""); // Remove parentheses
+                    coordinates = fromPositionPart.split(",");
+                    int fromRow = Integer.parseInt(coordinates[0].trim()) - 1; // Convert to 0-based index
+                    int fromCol = Integer.parseInt(coordinates[1].trim()) - 1; // Convert to 0-based index
+                    this.fromPosition = new Position(fromRow, fromCol);
+                } else {
+                    this.isTransfer = false;
+                }
+            } catch (Exception e) {
+                throw new IOException("Invalid move format: " + s, e);
+            }
         }
 
         @Override
         public int compareTo(Move o) {
-            // Implement comparison logic, perhaps based on move impact or other criteria
-            return 0; // Placeholder return
+            Peg5Move other = (Peg5Move) o;
+            // First compare by position, then by type
+            int rowCompare = Integer.compare(this.position.getRow(), other.position.getRow());
+            if (rowCompare != 0)
+                return rowCompare;
+            int colCompare = Integer.compare(this.position.getColumn(), other.position.getColumn());
+            if (colCompare != 0)
+                return colCompare;
+            return Byte.compare(this.type, other.type);
         }
 
+        @Override
+        public String toString() {
+
+            String typeName = getTypeName(); // Convert type to string
+            String pos = String.format("(%d,%d)", position.row + 1, position.col + 1); // 1-based index
+
+            if (isTransfer) {
+                String fromPos = String.format("(%d,%d)", fromPosition.row + 1, fromPosition.col + 1); // 1-based index
+                return String.format("%s %s <- %s", typeName, pos, fromPos);
+            } else {
+                return String.format("%s %s", typeName, pos);
+            }
+        }
+
+        private String getTypeName() {
+            switch (this.type) {
+                case 1:
+                    return "peg";
+                case 2:
+                    return "open";
+                case 3:
+                    return "closed";
+                default:
+                    return "unknown";
+            }
+
+        }
     }
 
-    private int SIZE; // The size of the game board, typically 7x7 for Peg5.
-    private int currentPlayer; // Tracks the current player. Could be 1 for Player 1 and -1 for Player 2.
-    private List<Peg5Move> moveHistory; // History of all moves made during the game for undo functionality.
-    private int[][] board; // The game board, where each cell contains a code representing a piece or
-                           // empty.
-
-    // Arrays to track the pieces each player has:
-    private byte[] greenPegs;
-    private byte[] greenClosedTubes;
-    private byte[] greenOpenTubes;
-    private byte[] yellowPegs;
-    private byte[] yellowClosedTubes;
-    private byte[] yellowOpenTubes;
+    public static final int BOARD_SIZE = 7;
+    public byte[][] board;
+    public int currentPlayer;
+    public List<Peg5Move> moveHistory;
+    public List<Group> activeGroups; // List to keep track of active groups
 
     /**
      * Constructs a new Peg5Board, initializing the board to empty and setting the
      * current player.
      */
     public Peg5Board() {
-        SIZE = 7; // Defaulting the board size to 7x7
-        board = new int[SIZE][SIZE];
-        moveHistory = new ArrayList<>();
-        currentPlayer = 1; // Assuming player 1 starts
-        initializePieces();
-    }
-
-    /**
-     * Initializes arrays representing the pieces for each player. Each type of
-     * piece
-     * has a specific number in accordance with the game rules.
-     */
-    private void initializePieces() {
-        greenPegs = new byte[10];
-        greenClosedTubes = new byte[4];
-        greenOpenTubes = new byte[4];
-        yellowPegs = new byte[10];
-        yellowClosedTubes = new byte[4];
-        yellowOpenTubes = new byte[4];
+        this.board = new byte[BOARD_SIZE][BOARD_SIZE];
+        this.currentPlayer = PLAYER_0;
+        this.moveHistory = new ArrayList<>();
+        this.activeGroups = new ArrayList<>();
     }
 
     @Override
@@ -99,264 +182,140 @@ public class Peg5Board implements Board {
     }
 
     @Override
-    /**
-     * This method applies a player's move to the Peg5 game board. A move consists
-     * of
-     * transferring a piece from one position (from) to another (to). The move is
-     * encapsulated
-     * in an instance of Peg5Move, which includes both the start and end positions
-     * and the type
-     * of piece being moved.
-     *
-     * Steps to apply a move:
-     * 1. Type Checking: Verify that the move instance passed to the method is of
-     * type Peg5Move.
-     * Throw an InvalidMoveException if it is not to ensure type safety.
-     *
-     * 2. Position Validation:
-     * a. Check if both the starting (from) and ending (to) positions are within the
-     * boundaries
-     * of the game board using the withinBoardLimits helper method. The game board
-     * is a
-     * two-dimensional grid defined by SIZE (typically 7x7 for Peg5). If either
-     * position
-     * is out of bounds, throw an InvalidMoveException with a message indicating the
-     * move
-     * is out of board limits.
-     *
-     * b. Ensure that the destination position (to) is empty (i.e., does not contain
-     * any other pieces).
-     * In Peg5, a position on the board can only hold one piece at a time unless
-     * merging specific
-     * types of pieces according to game rules (not covered in this method
-     * directly). If the destination
-     * is not empty, throw an InvalidMoveException stating that the cell is
-     * occupied.
-     *
-     * 3. Game-Specific Rules Validation:
-     * Use the isValidGameMove method to check additional game-specific conditions
-     * such as:
-     * - Ensuring the move is made according to the allowed patterns (e.g., only
-     * moving to adjacent,
-     * connected cells if required by game rules).
-     * - Verifying that the move does not violate any special conditions like
-     * jumping over other pieces
-     * unless explicitly allowed.
-     * If the move fails this validation, throw an InvalidMoveException with a
-     * description of the violated rule.
-     *
-     * 4. Applying the Move:
-     * - Update the board's state by moving the piece type from the start position
-     * to the end position
-     * in the board array. This involves setting the destination cell to the piece
-     * type and clearing
-     * the source cell.
-     * - Add the move to the moveHistory list to maintain a record of all moves,
-     * which can be used for
-     * features like undoing moves or replaying the game sequence.
-     *
-     * 5. Post-Move Processing:
-     * - Call the checkForGroups method to evaluate if the move has created any
-     * groups of pieces that
-     * meet the winning criteria. This check could involve scanning rows, columns,
-     * and diagonals from
-     * the position of the newly placed piece.
-     *
-     * 6. Player Switch:
-     * - After a valid move is applied, switch the active player using the
-     * switchPlayer method. This
-     * toggles the currentPlayer field between two players (typically represented by
-     * 1 and -1 in a
-     * two-player game).
-     *
-     * This method is critical for advancing the game state and ensuring the game's
-     * rules and integrity
-     * are maintained at each step of play.
-     */
-
     public void applyMove(Move m) throws InvalidMoveException {
+        if (!(m instanceof Peg5Move)) {
+            throw new InvalidMoveException("Invalid move class");
+        }
         Peg5Move move = (Peg5Move) m;
-        // 1. Type Checking
-        if (move == null) {
-            throw new InvalidMoveException("Invalid move type");
-        }
-
-        // 2. Position Validation
-        if (!withinBoardLimits(move.from) || !withinBoardLimits(move.to)) {
-            throw new InvalidMoveException("Move out of board limits");
-        }
-
-        if (board[move.to.getRow()][move.to.getColumn()] != 0) {
-            throw new InvalidMoveException("Destination cell is occupied");
-        }
-
-        // 3. use getValidMoves to check if the move is valid
-        if (!getValidMoves().contains(move)) {
-            throw new InvalidMoveException("Invalid move");
-        }
-
-        // 4. Applying the Move
-        if (board[move.from.getRow()][move.from.getColumn()] == 0) {
-            // Place a piece on the board
-            board[move.to.getRow()][move.to.getColumn()] = currentPlayer;
+        if (isMoveValid(move, move.position.row, move.position.col)) {
+            updateBoard(move);
+            moveHistory.add(move);
+            updateGroups(move);
+            currentPlayer = -currentPlayer; // Switch players
         } else {
-            // Move a piece on the board
-            board[move.to.getRow()][move.to.getColumn()] = board[move.from.getRow()][move.from.getColumn()];
-            board[move.from.getRow()][move.from.getColumn()] = 0;
-        }
-
-        board[move.to.getRow()][move.to.getColumn()] = board[move.from.getRow()][move.from.getColumn()];
-        board[move.from.getRow()][move.from.getColumn()] = 0;
-        moveHistory.add(move);
-
-        // 5. Post-Move Processing
-        checkForGroups(move.to);
-
-        // 6. Player Switch
-        switchPlayer();
-    }
-
-    /**
-     * Scans the board to check for groups of pieces that could potentially form a
-     * winning condition.
-     * This method looks at horizontal, vertical, and diagonal sequences on the
-     * board, identifying any
-     * continuous sequence of five pieces.
-     *
-     * The check is performed as follows:
-     * 1. Horizontal Check: For each row, look at every consecutive sequence of five
-     * cells.
-     * 2. Vertical Check: For each column, repeat the process used in the horizontal
-     * check.
-     * 3. Diagonal Check: Two types are checked - from top left to bottom right, and
-     * top right to bottom left.
-     *
-     * Each sequence is evaluated against fixed patterns that define a win. If a
-     * potential win is detected,
-     * the method will update the game state or perform necessary actions such as
-     * marking these groups for
-     * further evaluation.
-     */
-    private void checkForGroups(Position to) {
-        // Horizontal Check
-        for (int row = 0; row < SIZE; row++) {
-            for (int col = 0; col < SIZE - 4; col++) {
-                if (board[row][col] == currentPlayer && board[row][col + 1] == currentPlayer
-                        && board[row][col + 2] == currentPlayer && board[row][col + 3] == currentPlayer
-                        && board[row][col + 4] == currentPlayer) {
-                    // create a group of pieces
-                    Group group = new Group();
-                    // add pieces to the group
-                    for (int i = 0; i < 5; i++) {
-                        group.addPiece(new Position(row, col + i, currentPlayer, board[row][col + i]));
-                    }
-                }
-            }
-        }
-
-        // Vertical Check
-        for (int col = 0; col < SIZE; col++) {
-            for (int row = 0; row < SIZE - 4; row++) {
-                if (board[row][col] == currentPlayer && board[row + 1][col] == currentPlayer
-                        && board[row + 2][col] == currentPlayer && board[row + 3][col] == currentPlayer
-                        && board[row + 4][col] == currentPlayer) {
-                    // create a group of pieces
-                    Group group = new Group();
-                    // add pieces to the group
-                    for (int i = 0; i < 5; i++) {
-                        group.addPiece(new Position(row + i, col, currentPlayer, board[row + i][col]));
-                    }
-                }
-            }
-        }
-
-        // Diagonal Check (Top Left to Bottom Right)
-        for (int row = 0; row < SIZE - 4; row++) {
-            for (int col = 0; col < SIZE - 4; col++) {
-                if (board[row][col] == currentPlayer && board[row + 1][col + 1] == currentPlayer
-                        && board[row + 2][col + 2] == currentPlayer && board[row + 3][col + 3] == currentPlayer
-                        && board[row + 4][col + 4] == currentPlayer) {
-                    // create a group of pieces
-                    Group group = new Group();
-                    // add pieces to the group
-                    for (int i = 0; i < 5; i++) {
-                        group.addPiece(new Position(row + i, col + i, currentPlayer, board[row + i][col + i]));
-                    }
-                }
-            }
-        }
-
-        // Diagonal Check (Top Right to Bottom Left)
-        for (int row = 0; row < SIZE - 4; row++) {
-            for (int col = SIZE - 1; col >= 4; col--) {
-                if (board[row][col] == currentPlayer && board[row + 1][col - 1] == currentPlayer
-                        && board[row + 2][col - 2] == currentPlayer && board[row + 3][col - 3] == currentPlayer
-                        && board[row + 4][col - 4] == currentPlayer) {
-                    // create a group of pieces
-                    Group group = new Group();
-                    // add pieces to the group
-                    for (int i = 0; i < 5; i++) {
-                        group.addPiece(new Position(row + i, col - i, currentPlayer, board[row + i][col - i]));
-                    }
-                }
-            }
+            throw new InvalidMoveException("Move is not valid");
         }
     }
 
-    private boolean withinBoardLimits(Position from) {
-        return from.getRow() >= 0 && from.getRow() < SIZE && from.getColumn() >= 0 && from.getColumn() < SIZE;
+    private void updateGroups(Peg5Move move) {
+        // Apply move to board, updating pieces
+        board[move.position.row][move.position.col] = move.type;
+        if (move.isTransfer) {
+            board[move.fromPosition.row][move.fromPosition.col] = 0; // Clear old position
+        }
+    }
+
+    private void updateBoard(Peg5Move move) {
+        // Apply move to board, updating pieces
+        board[move.position.row][move.position.col] = move.type;
+        if (move.isTransfer) {
+            board[move.fromPosition.row][move.fromPosition.col] = 0; // Clear old position
+        }
+    }
+
+    private boolean isMoveValid(Peg5Move move, int row, int col) {
+        // Check bounds
+        if (!(row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE)) {
+            return false;
+        }
+
+        if (move.isTransfer) {
+            // For transfer moves, check that the fromPosition is within bounds and contains
+            // the player's piece
+            if (!(row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE) ||
+                    board[move.fromPosition.row][move.fromPosition.col] != move.type ||
+                    board[move.position.row][move.position.col] != 0) {
+                return false;
+            }
+        } else {
+            // For placement moves, ensure the target cell is empty
+            if (board[move.position.row][move.position.col] != 0) {
+                return false;
+            }
+        }
+
+        // Ensure the move corresponds to the current player's piece type
+        // Assuming 1, 2 for PLAYER_0 (peg, tube) and 3, 4 for PLAYER_1 (peg, tube)
+        if (currentPlayer == PLAYER_0 && move.type > 2) {
+            return false;
+        } else if (currentPlayer == PLAYER_1 && move.type < 3) {
+            return false;
+        }
+
+        // All checks passed, the move is valid
+        return true;
     }
 
     @Override
     public int getValue() {
-        // Implementation depends on Peg5 game logic for evaluating the board state
-        return 0; // Placeholder return
+        int greenScore = 0;
+        int yellowScore = 0;
+        for (Group group : activeGroups) {
+            if (group.owner == PLAYER_0) {
+                greenScore += group.evaluateScore();
+            } else {
+                yellowScore += group.evaluateScore();
+            }
+        }
+        return greenScore - yellowScore;
     }
 
     @Override
-    /**
-     * Generates and returns a list of all valid moves for the current player. This
-     * method
-     * considers the entire board state and current player's pieces to determine
-     * possible
-     * and legal moves according to Peg5 rules.
-     *
-     * Steps to determine valid moves:
-     * 1. Initialize an empty list to store all valid moves.
-     * 2. Iterate over each cell of the board to examine potential moves:
-     * - For each cell, determine if it can be a starting point for any legal move
-     * based on the piece it contains
-     * and who controls the piece.
-     * 3. Check each possible move from the current cell:
-     * - For pieces that can move, consider all potential target cells they could
-     * legally move to.
-     * - For pieces that can be placed (if the player still has pieces to place),
-     * consider all empty cells where
-     * a piece can be placed according to game rules.
-     * 4. For each potential move, validate the move:
-     * - Ensure the move does not result in self-check or any other illegal state.
-     * - Confirm the move follows the specific movement and placement rules of Peg5,
-     * such as moving within straight lines or placing next to a specific type of
-     * piece if required.
-     * 5. If the move is valid, add it to the list of valid moves.
-     * 6. Return the list of valid moves.
-     *
-     * This method is crucial for AI implementations and for enabling user choices
-     * in interactive game sessions,
-     * ensuring that all presented moves are possible within the current game rules
-     * and state.
-     */
     public List<Peg5Move> getValidMoves() {
         List<Peg5Move> validMoves = new ArrayList<>();
-        for (int row = 0; row < SIZE; row++) {
-            for (int col = 0; col < SIZE; col++) {
-                if (board[row][col] == currentPlayer) {
-                    // Check for valid moves from this position
-                    // Add valid moves to the list
+        // Define constants for piece types in the order required by the sorting
+        // criteria
+        byte[] pieceTypes = { 1, 2, 3 }; // 1: peg, 2: open tube, 3: closed tube for PLAYER_0 and adjusted for PLAYER_1
+
+        // Iterate over all board positions in row-major order
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int col = 0; col < BOARD_SIZE; col++) {
+                // Check if the position is empty for placement moves
+                if (board[row][col] == 0) {
+                    for (byte pieceType : pieceTypes) {
+                        validMoves.add(new Peg5Move(pieceType, new Position(row, col), false, null));
+                    }
+                } else {
+                    // Check for possible transfer moves if all pieces of the type have been placed
+                    byte pieceType = board[row][col];
+                    if (allPiecesPlaced(pieceType)) {
+                        addTransferMoves(row, col, validMoves);
+                    }
                 }
             }
         }
+
         return validMoves;
+    }
+
+    private boolean allPiecesPlaced(byte pieceType) {
+        int count = countPlacedPieces(pieceType);
+        return count == 10; // Assuming each player has 10 pieces of each type
+    }
+
+    private int countPlacedPieces(byte pieceType) {
+        int count = 0;
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int col = 0; col < BOARD_SIZE; col++) {
+                if (board[row][col] == pieceType) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    private void addTransferMoves(int fromRow, int fromCol, List<Peg5Move> validMoves) {
+        byte pieceType = board[fromRow][fromCol];
+        // Add moves transferring a piece from (fromRow, fromCol) to any empty cell
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int col = 0; col < BOARD_SIZE; col++) {
+                if (board[row][col] == 0) {
+                    validMoves
+                            .add(new Peg5Move(pieceType, new Position(row, col), true, new Position(fromRow, fromCol)));
+                }
+            }
+        }
     }
 
     @Override
@@ -371,24 +330,59 @@ public class Peg5Board implements Board {
 
     @Override
     public void undoMove() {
-
-    }
-
-    public void switchPlayer() {
-        currentPlayer = -currentPlayer; // Toggle between PLAYER_0 and PLAYER_1
-    }
-
-    public Integer[][] getBoard() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getBoard'");
+        if (moveHistory.isEmpty()) {
+            return; // Nothing to undo
+        }
+        Peg5Move lastMove = moveHistory.remove(moveHistory.size() - 1);
+        // Undo the move by clearing the target position
+        board[lastMove.position.row][lastMove.position.col] = 0;
+        if (lastMove.isTransfer) {
+            // Restore the piece to the original position
+            board[lastMove.fromPosition.row][lastMove.fromPosition.col] = lastMove.type;
+        }
+        // Switch back to the previous player
+        currentPlayer = -currentPlayer;
     }
 
     @Override
-
+    // Player Indicator: Shows which player's turn it is currently ("Green" or
+    // "Yellow"). This can be adapted if you're using different identifiers or
+    // colors for players.
+    // Board Layout: The board is printed with rows and columns labeled for clarity.
+    // Each cell of the board is converted into a readable character ,
+    // making the board state easy to understand at a glance.
+    // Piece Representation: convert numeric piece
+    // identifiers into characters ('P', 'O' for different types of pieces and
+    // players). You can customize these characters based on your actual game pieces
+    // or player distinction.
+    // This toString method will provide a clear and immediately useful view of the
+    // board state, making it suitable for outputting to a console or debugging
+    // tool. This visual representation can be invaluable during development,
+    // testing, or even when playing the game in a text-based environment.
     public String toString() {
-
+        StringBuilder sb = new StringBuilder();
+        sb.append("Player Indicator: ");
+        sb.append(currentPlayer == PLAYER_0 ? "Green" : "Yellow");
+        sb.append("\n");
+        sb.append("Board Layout:\n");
+        sb.append("  1 2 3 4 5 6 7\n");
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            sb.append(row + 1).append(" ");
+            for (int col = 0; col < BOARD_SIZE; col++) {
+                byte piece = board[row][col];
+                char pieceChar = ' ';
+                if (piece == 1) {
+                    pieceChar = 'P'; // Peg
+                } else if (piece == 2) {
+                    pieceChar = 'O'; // Open tube
+                } else if (piece == 3) {
+                    pieceChar = 'C'; // Closed tube
+                }
+                sb.append(pieceChar).append(" ");
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
     }
-
-    // Inner class Peg5Move
 
 }

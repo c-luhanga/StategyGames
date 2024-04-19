@@ -43,7 +43,7 @@ public class Connections {
     Cell cell1;
     Cell cell2;
 
-    public void Connection(Cell c1, Cell c2) {
+    public Connections(Cell c1, Cell c2) {
         this.cell1 = c1;
         this.cell2 = c2;
     }

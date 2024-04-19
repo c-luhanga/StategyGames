@@ -1,15 +1,8 @@
-package BoardGames.Test;
+package BoardGames.BoardTest;
 
 import java.util.Scanner;
-
-import javax.swing.plaf.synth.SynthTabbedPaneUI;
-import javax.swing.text.Style;
-
 import BoardGames.AiSolver.AiSolver;
 import BoardGames.Board_Interface.Board;
-import BoardGames.Board_Interface.Board.InvalidMoveException;
-import BoardGames.Board_Interface.Board.Move;
-
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;

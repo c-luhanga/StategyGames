@@ -4,17 +4,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-import java.util.Set;
 import java.util.stream.Collectors;
-
 import BoardGames.Board_Interface.Board;
-import BoardGames.Board_Interface.Board.InvalidMoveException;
-import BoardGames.Board_Interface.Board.Move;
 
 /**
  * BeehiveBoard Class Development Guide with Integrated Components
@@ -140,7 +134,6 @@ public class BeehiveBoard implements Board {
             }
             if (b == 0) {
                 this.SWAP = true;
-                return;
             } else {
                 row = (b >> 4) - 1;
                 col = (b & 0x0F) - 1;

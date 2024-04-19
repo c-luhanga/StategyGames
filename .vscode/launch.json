@@ -23,18 +23,26 @@
             "type": "java",
             "name": "BoardTestTicTacToe",
             "request": "launch",
-            "mainClass": "BoardGames.BoardTest",
+            "mainClass": "BoardGames.BoardTest.BoardTest",
             "projectName": "BoardGames_c6ae8d3d",
-            "args": "BoardGames.TicTacToe.TicTacToeBoard > output.out",
+            "args": "BoardGames.TicTacToe.TicTacToeBoard ",
         }
         ,
         {
             "type": "java",
             "name": "BoardTestBeehive",
             "request": "launch",
+            "mainClass": "BoardGames.BoardTest.BoardTest",
+            "projectName": "BoardGames_c6ae8d3d",
+            "args": "BoardGames.Beehive.BeehiveBoard"
+        },
+        {
+            "type": "java",
+            "name": "BoardTestPeg5",
+            "request": "launch",
             "mainClass": "BoardGames.BoardTest",
             "projectName": "BoardGames_c6ae8d3d",
-            "args": "BoardGames.BeehiveBoard.BeehiveBoard"
+            "args": "BoardGames.Peg5.Peg5Board"
         }
     ]
 }
