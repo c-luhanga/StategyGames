@@ -88,14 +88,21 @@ public class Peg5Board implements Board {
                 String typePart = parts[0].toLowerCase();
                 switch (typePart) {
                     case "peg":
-                        this.type = GREEN_PEG; // Assuming default to Green for simplicity; adjust based on
-                                               // currentPlayer or context
+                        this.type = (currentPlayer == PLAYER_0 ? GREEN_PEG : YELLOW_PEG); // Assuming default to Green
+                                                                                          // for simplicity; adjust
+                                                                                          // based on
+                        // currentPlayer or context
                         break;
                     case "open":
-                        this.type = OPEN_GREEN_TUBE; // Assuming default to Green Open Tube
+                        this.type = (currentPlayer == PLAYER_0 ? OPEN_GREEN_TUBE : OPEN_YELLOW_TUBE); // Assuming
+                                                                                                      // default to
+                                                                                                      // Green Open Tube
                         break;
                     case "closed":
-                        this.type = CLOSED_GREEN_TUBE; // Assuming default to Green Closed Tube
+                        this.type = (currentPlayer == PLAYER_0 ? CLOSED_GREEN_TUBE : CLOSED_YELLOW_TUBE); // Assuming
+                                                                                                          // default to
+                                                                                                          // Green
+                                                                                                          // Closed Tube
                         break;
                     default:
                         throw new IllegalArgumentException("Unknown piece type: " + typePart);
@@ -154,11 +161,11 @@ public class Peg5Board implements Board {
 
         private String getTypeName() {
             switch (this.type) {
-                case 1:
+                case 1, 2:
                     return "peg";
-                case 2:
+                case 3, 5:
                     return "open";
-                case 3:
+                case 4, 6:
                     return "closed";
                 default:
                     return "unknown";
@@ -282,29 +289,57 @@ public class Peg5Board implements Board {
     }
 
     private void updateBoard(Peg5Move move) {
+        byte originContent = 0; // Assume empty initially
         if (move.isTransfer) {
-            // If it's a transfer move, remove the piece from the original position
-            board[move.fromPosition.row][move.fromPosition.col] = encodePiece(NONE, NONE); // Reset the original cell
+            // Save the content from the origin position
+            originContent = board[move.fromPosition.row][move.fromPosition.col];
+            // check if the origin position is a peg with a tube
+            if (decodePeg(originContent) != NONE && decodeTube(originContent) != NONE) {
+                // If the origin position has both a peg and a tube, we need to clear the tube
+                board[move.fromPosition.row][move.fromPosition.col] = encodePiece(decodePeg(originContent), NONE);
+            } else {
+                // Clear the original position since we are transferring the piece
+                board[move.fromPosition.row][move.fromPosition.col] = encodePiece(NONE, NONE);
+            }
         }
-        // Get the current contents of the target cell
-        byte currentContent = board[move.position.row][move.position.col];
-        byte currentPeg = decodePeg(currentContent);
-        byte currentTube = decodeTube(currentContent);
-        // Determine what the new content should be
-        byte newPeg = currentPeg; // Start with the current peg (if any)
-        byte newTube = currentTube; // Start with the current tube (if any)
-        if (move.type <= YELLOW_PEG) { // If the move is placing a peg
-            newPeg = move.type; // Replace or place the new peg
-        } else if (move.type >= OPEN_GREEN_TUBE) { // If the move is placing a tube
-            newTube = move.type; // Replace or place the new tube
+
+        // Get the current content of the target cell where the piece will be placed or
+        // transferred
+        byte targetContent = board[move.position.row][move.position.col];
+        byte targetPeg = decodePeg(targetContent);
+        byte targetTube = decodeTube(targetContent);
+
+        // Calculate the new content of the target position based on the move type
+        if (move.type <= YELLOW_PEG) {
+            // For pegs, replace the peg part of the target position
+            targetPeg = move.type;
+        } else if (move.type >= OPEN_GREEN_TUBE) {
+            // For tubes, replace the tube part of the target position
+            targetTube = move.type;
         }
-        // Encode the new state back into the board
-        board[move.position.row][move.position.col] = encodePiece(newPeg, newTube);
+
+        // If transferring, use the peg and tube from the origin if applicable
+        if (move.isTransfer) {
+            byte originPeg = decodePeg(originContent);
+            byte originTube = decodeTube(originContent);
+            if (move.type <= YELLOW_PEG) {
+                targetPeg = originPeg;
+            } else if (move.type >= OPEN_GREEN_TUBE) {
+                targetTube = originTube;
+            }
+        }
+
+        // Encode the new state back into the board at the target position
+        board[move.position.row][move.position.col] = encodePiece(targetPeg, targetTube);
     }
 
     private boolean isMoveValid(Peg5Move move, int row, int col) {
+        System.out.println("Validating Move: " + move);
+
         // Check if the specified positions are within the bounds of the board
         if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
+            System.out.println("Move out of bounds");
+
             return false;
         }
 
@@ -314,14 +349,17 @@ public class Peg5Board implements Board {
 
         // Ensure the destination is compatible with the intended move
         if (!isCompatible(sourcePiece, destPiece, move.isTransfer)) {
+            System.out.println("Incompatible pieces");
             return false;
         }
 
         // Check if the placement or movement is valid based on the piece type
         if (!isPlacementValid(move.type, row, col, move.isTransfer)) {
+            System.out.println("Placement invalid");
             return false;
         }
 
+        System.out.println("Move valid");
         return isMoveTypeValid(move.type);
     }
 
@@ -331,25 +369,33 @@ public class Peg5Board implements Board {
         } else if (currentPlayer == PLAYER_1) {
             return type == YELLOW_PEG || type == OPEN_YELLOW_TUBE || type == CLOSED_YELLOW_TUBE;
         }
+
         return false;
     }
 
     private boolean isPlacementValid(byte type, int row, int col, boolean isTransfer) {
-        if (isTransfer) {
-            // Transfers might have different rules; this is a simple placeholder
+        if (isTransfer && ((board[row][col] == 0 || decodeTube(board[row][col]) == OPEN_GREEN_TUBE
+                || decodeTube(board[row][col]) == OPEN_YELLOW_TUBE || decodeTube(board[row][col]) == NONE))) {
             return true;
         }
         // Check if the placement is valid based on the piece type
         switch (type) {
             case GREEN_PEG:
+                // check if the peg is placed in empty cell
+                return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE && board[row][col] == 0;
             case YELLOW_PEG:
-                return row >= 0 && row < BOARD_SIZE; // Example rule: pegs can be placed anywhere
+                return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE && board[row][col] == 0;
             case OPEN_GREEN_TUBE:
+                // check if the tube is placed in empty cell or in a cell where a peg is placed
+                return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE
+                        && (board[row][col] == 0 || decodePeg(board[row][col]) == GREEN_PEG);
             case CLOSED_GREEN_TUBE:
-                return col == 3; // Example: green tubes must be placed in column 4
+                return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE && board[row][col] == 0;
             case OPEN_YELLOW_TUBE:
+                return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE
+                        && (board[row][col] == 0 || decodePeg(board[row][col]) == YELLOW_PEG);
             case CLOSED_YELLOW_TUBE:
-                return row == 3; // Example: yellow tubes must be placed in row 4
+                return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE && board[row][col] == 0;
             default:
                 return false;
         }
@@ -565,6 +611,7 @@ public class Peg5Board implements Board {
     }
 
     private String pieceToString(byte piece) {
+        System.out.println("Piece: " + piece);
         int peg = decodePeg(piece);
         int tube = decodeTube(piece);
 
