@@ -434,11 +434,8 @@ public class Peg5Board implements Board {
         int destPeg = decodePeg(destPiece);
         int destTube = decodeTube(destPiece);
 
-        if (!isTransfer || destPiece != OPEN_GREEN_TUBE || destPiece != OPEN_YELLOW_TUBE
-                || destPiece != NONE) {
-            return false; // If not a transfer, destination must be empty unless specific
-            // interactions are
-            // allowed
+        if (!isTransfer && (destPiece != OPEN_GREEN_TUBE && destPiece != OPEN_YELLOW_TUBE && destPiece != NONE)) {
+            return false;
         }
         // Check compatibility of placing or transferring a piece into another
         switch (sourcePeg) {
@@ -460,16 +457,16 @@ public class Peg5Board implements Board {
 
     @Override
     public int getValue() {
-        System.out.println("Evaluating board value");
+        // System.out.println("Evaluating board value");
         int greenScore = 0;
         int yellowScore = 0;
         for (Group group : activeGroups) {
-            System.out.println("Group (getValue): " + group);
+            // System.out.println("Group (getValue): " + group);
             if (group.owner == PLAYER_0) {
-                System.out.println("Green Group (getvals): " + group);
+                // System.out.println("Green Group (getvals): " + group);
                 greenScore += group.evaluateScore();
             } else {
-                System.out.println("Yellow Group (getvals): " + group);
+                // System.out.println("Yellow Group (getvals): " + group);
                 yellowScore += group.evaluateScore();
             }
         }
@@ -649,7 +646,6 @@ public class Peg5Board implements Board {
     private String pieceToString(byte piece) {
         // int peg = decodePeg(piece);
         // int tube = decodeTube(piece);
-        System.out.println("Peg: " + piece + " Tube: " + piece);
         // Combine peg and tube information into a single string representation
         switch (piece) {
             case OPEN_GREEN_TUBE:

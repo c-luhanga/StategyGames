@@ -20,7 +20,8 @@ public class WinPatterns {
      * @return true if the line contains a winning pattern, false otherwise.
      */
     public static boolean isWinningLine(byte[] line) {
-        System.out.println("Checking line for win (WinPattern): " + line[0] + line[1] + line[2] + line[3] + line[4]);
+        // System.out.println("Checking line for win (WinPattern): " + line[0] + line[1]
+        // + line[2] + line[3] + line[4]);
         if (line.length != 5)
             return false; // Only consider lines of exactly 5 pieces
 
@@ -40,8 +41,9 @@ public class WinPatterns {
      * @return true if the line matches the pattern, false otherwise.
      */
     private static boolean matchesPattern(byte[] line, byte[] pattern) {
-        System.out.println(
-                "Matching pattern(WinPattern): " + pattern[0] + pattern[1] + pattern[2] + pattern[3] + pattern[4]);
+        // System.out.println(
+        // "Matching pattern(WinPattern): " + pattern[0] + pattern[1] + pattern[2] +
+        // pattern[3] + pattern[4]);
         for (int i = 0; i < line.length; i++) {
             if (line[i] != pattern[i]) {
                 return false; // No match at this position

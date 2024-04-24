@@ -16,7 +16,7 @@ public class GroupManager {
 
     public void updateGroupsAfterMove(Peg5Move move) {
         // Clear existing groups and find new groups after a move
-        System.out.println("Updating groups after move 1(GroupManager): " + move);
+        // System.out.println("Updating groups after move 1(GroupManager): " + move);
         // activeGroups.clear();
         findAllGroups();
         handleMove(move);
@@ -24,7 +24,7 @@ public class GroupManager {
 
     private void findAllGroups() {
         // Scan all rows, columns, and diagonals to find and evaluate groups
-        System.out.println("Finding all groups(GroupManager)");
+        // System.out.println("Finding all groups(GroupManager)");
         for (int row = 0; row < Peg5Board.BOARD_SIZE; row++) {
             for (int col = 0; col < Peg5Board.BOARD_SIZE; col++) {
                 // Extract groups starting from each position on the board
@@ -35,7 +35,8 @@ public class GroupManager {
 
     private void extractGroupsFromPosition(int startRow, int startCol) {
         // Directions for horizontal, vertical, and diagonal checks
-        System.out.println("Extracting groups from position(GroupManager): " + startRow + ", " + startCol);
+        // System.out.println("Extracting groups from position(GroupManager): " +
+        // startRow + ", " + startCol);
         int[][] directions = {
                 { 0, 1 }, // Right (Horizontal)
                 { 1, 0 }, // Down (Vertical)
@@ -49,7 +50,8 @@ public class GroupManager {
     }
 
     private void extractGroupInDirection(int startRow, int startCol, int dRow, int dCol) {
-        System.out.println("Extracting group in direction (GroupManager): " + dRow + ", " + dCol);
+        // System.out.println("Extracting group in direction (GroupManager): " + dRow +
+        // ", " + dCol);
         int endRow = startRow + 4 * dRow;
         int endCol = startCol + 4 * dCol;
 
@@ -71,11 +73,11 @@ public class GroupManager {
             if (validGroup && groupPositions.size() == 5) {
                 Group newGroup = new Group(board.getCurrentPlayer());
                 for (Position pos : groupPositions) {
-                    System.out.println("Adding position (GroupManager): " + pos);
+                    // System.out.println("Adding position (GroupManager): " + pos);
                     newGroup.addPosition(pos);
                 }
                 if (newGroup.checkForWin()) {
-                    System.out.println("Found winning group:(GroupManager) " + newGroup);
+                    // System.out.println("Found winning group:(GroupManager) " + newGroup);
                     activeGroups.add(newGroup);
                 }
             }
