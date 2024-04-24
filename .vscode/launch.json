@@ -13,36 +13,35 @@
         },
         {
             "type": "java",
-            "name": "Connections",
+            "name": "BoardTestBeehive",
             "request": "launch",
-            "mainClass": "BoardGames.BeehiveBoard.Connections",
-            "projectName": "BoardGames_c6ae8d3d"
-            
-        },
-        {
-            "type": "java",
-            "name": "BoardTestTicTacToe",
-            "request": "launch",
-            "mainClass": "BoardGames.BoardTest.BoardTest",
+            "mainClass": "edu.principia.charles.OODesign.StrategyGames.BoardTest.BoardTest",
             "projectName": "BoardGames_c6ae8d3d",
-            "args": "BoardGames.TicTacToe.TicTacToeBoard ",
+            "args": "edu.principia.charles.OODesign.StrategyGames.Beehive.BeehiveBoard"
         }
         ,
         {
             "type": "java",
-            "name": "BoardTestBeehive",
+            "name": "TickTacToeBoard",
             "request": "launch",
-            "mainClass": "BoardGames.BoardTest.BoardTest",
+            "mainClass": "edu.principia.charles.OODesign.StrategyGames.BoardTest.BoardTest",
             "projectName": "BoardGames_c6ae8d3d",
-            "args": "BoardGames.Beehive.BeehiveBoard"
+            "args": "edu.principia.charles.OODesign.StrategyGames.TicTacToe.TicTacToeBoard > TTToutput.out",
         },
+        {
+            "type": "java",
+            "name": "ReversiBoard",
+            "request": "launch",
+            "mainClass": "edu.principia.charles.OODesign.StrategyGames.BoardTest.BoardTest",
+            "projectName": "BoardGames_c6ae8d3d",
+            "args": "edu.principia.charles.OODesign.StrategyGames.Reversi.ReversiBoard",},
         {
             "type": "java",
             "name": "BoardTestPeg5",
             "request": "launch",
-            "mainClass": "BoardGames.BoardTest",
+            "mainClass": "edu.principia.charles.OODesign.StrategyGames.BoardTest.BoardTest",
             "projectName": "BoardGames_c6ae8d3d",
-            "args": "BoardGames.Peg5.Peg5Board"
+            "args": "edu.principia.charles.OODesign.StrategyGames.Peg5.Peg5Board",
         }
     ]
 }

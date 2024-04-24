@@ -1,0 +1,634 @@
+package edu.Principia.MBrad.OODesign.StrategyGames.peg5;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+import edu.Principia.OODesign.StrategyGames.Board;
+public class Peg5Board implements Board {
+   public static final int BOARD_SIZE = 7;
+   public static final int PLAYER_0 = 1;
+   public static final int PLAYER_1 = -1;
+
+   private Peg5Cell[][] board;
+   private int player;
+   public int[] greenUnplayedPieces;
+   public int[] yellowUnplayedPieces;
+   public int moveCount;
+   private List<Peg5Move> moveHistory;
+
+   // Constructor
+   public Peg5Board() {
+      board = new Peg5Cell[BOARD_SIZE][BOARD_SIZE];
+      for (int row = 0; row < BOARD_SIZE; row++) {
+         for (int col = 0; col < BOARD_SIZE; col++) {
+            board[row][col] = new Peg5Cell();
+         }
+      }
+      player = PLAYER_0;
+      greenUnplayedPieces = new int[] { 10, 4, 4 };
+      yellowUnplayedPieces = new int[] { 10, 4, 4 };
+      moveCount = 0;
+      moveHistory = new ArrayList<>();
+   }
+
+   private boolean canPlacePeg(int row, int col, int player) {
+      return board[row][col].canPlacePeg(player);
+   }
+
+   private boolean canPlaceTube(int row, int col, int player) {
+      return board[row][col].canPlaceTube(player);
+   }
+
+   // Factory method to create a new move
+   @Override
+   public Board.Move createMove() {
+      return new Peg5Move();
+   }
+
+   // Apply a move to the board, throwing an exception if the move is invalid
+   @Override
+   public void applyMove(Board.Move move) throws InvalidMoveException {
+      Peg5Move peg5Move = (Peg5Move) move;
+      System.out.println("DEBUG: Applying move: " + peg5Move);
+
+      
+      int row = peg5Move.getRow();
+      int col = peg5Move.getCol();
+      Peg5Cell cell = board[row][col];
+
+      if (peg5Move.getPieceType() == Peg5Move.PieceType.PEG) {
+         if (player == PLAYER_0) {
+            if (!canPlacePeg(row, col, PLAYER_0)) {
+               throw new InvalidMoveException("Invalid move: cannot place peg green peg at (" + row + ", " + col + ")");
+            }
+            cell.setGreenPeg();
+            greenUnplayedPieces[0]--;
+         } else {
+            if (!canPlacePeg(row, col, PLAYER_1)) {
+               throw new InvalidMoveException(
+                     "Invalid move: cannot place peg yellow peg at (" + row + ", " + col + ")");
+            }
+            cell.setYellowPeg();
+            yellowUnplayedPieces[0]--;
+         }
+      } else if (peg5Move.getPieceType() == Peg5Move.PieceType.OPEN_TUBE) {
+         if (player == PLAYER_0) {
+            if (!canPlaceTube(row, col, PLAYER_0)) {
+               throw new InvalidMoveException(
+                     "Invalid move: cannot place green open tube at (" + row + ", " + col + ")");
+            }
+            cell.setGreenOpenTube();
+            greenUnplayedPieces[1]--;
+         } else {
+            if (!canPlaceTube(row, col, PLAYER_1)) {
+               throw new InvalidMoveException(
+                     "Invalid move: cannot place yellow open tube at (" + row + ", " + col + ")");
+            }
+            cell.setYellowOpenTube();
+            yellowUnplayedPieces[1]--;
+         }
+      } else if (peg5Move.getPieceType() == Peg5Move.PieceType.CLOSED_TUBE) {
+         if (player == PLAYER_0) {
+            if (!canPlaceTube(row, col, PLAYER_0)) {
+               throw new InvalidMoveException(
+                     "Invalid move: cannot place green closed tube at (" + row + ", " + col + ")");
+            }
+            cell.setGreenClosedTube();
+            greenUnplayedPieces[2]--;
+         } else {
+            if (!canPlaceTube(row, col, PLAYER_1)) {
+               throw new InvalidMoveException(
+                     "Invalid move: cannot place yellow closed tube at (" + row + ", " + col + ")");
+            }
+            cell.setYellowClosedTube();
+            yellowUnplayedPieces[2]--;
+         }
+      }
+
+      if (peg5Move.isRepositioningMove()) {
+         int sourceRow = peg5Move.getSourceRow();
+         int sourceCol = peg5Move.getSourceCol();
+         Peg5Cell sourceCell = board[sourceRow][sourceCol];
+
+         if (player == PLAYER_0) {
+            if (peg5Move.getPieceType() == Peg5Move.PieceType.PEG) {
+               sourceCell.removeGreenPeg();
+            } else if (peg5Move.getPieceType() == Peg5Move.PieceType.OPEN_TUBE) {
+               sourceCell.removeGreenOpenTube();
+            } else if (peg5Move.getPieceType() == Peg5Move.PieceType.CLOSED_TUBE) {
+               sourceCell.removeGreenClosedTube();
+            }
+         } else {
+            if (peg5Move.getPieceType() == Peg5Move.PieceType.PEG) {
+               sourceCell.removeYellowPeg();
+            } else if (peg5Move.getPieceType() == Peg5Move.PieceType.OPEN_TUBE) {
+               sourceCell.removeYellowOpenTube();
+            } else if (peg5Move.getPieceType() == Peg5Move.PieceType.CLOSED_TUBE) {
+               sourceCell.removeYellowClosedTube();
+            }
+         }
+      }
+
+      moveHistory.add(peg5Move.clone());
+      player = -player;
+      moveCount++;
+   }
+
+   // Return the current board valuation
+   @Override
+   public int getValue() {
+      // Implement the getValue method
+      int greenValue = 0;
+      int yellowValue = 0;
+      int green4Value = 0;
+      int yellow4Value = 0;
+
+      if (hasWinningPattern(PLAYER_0)) {
+         return WIN;
+      } else if (hasWinningPattern(PLAYER_1)) {
+         return -WIN;
+      }
+      for (int row = 0; row < BOARD_SIZE; row++) {
+         for (int col = 0; col < BOARD_SIZE; col++) {
+            green4Value += count4CellPattern(row, col, PLAYER_0);
+            yellow4Value += count4CellPattern(row, col, PLAYER_1);
+
+            greenValue += count3CellPattern(row, col, PLAYER_0);
+            yellowValue += count3CellPattern(row, col, PLAYER_1);
+         }
+      }
+      green4Value = green4Value * 10;
+      yellow4Value = yellow4Value * 10;
+
+      greenValue = green4Value + greenValue;
+      yellowValue = yellow4Value + yellowValue;
+
+      return greenValue - yellowValue;
+   }
+
+   private boolean hasWinningPattern(int player) {
+      // Check rows
+      for (int row = 0; row < BOARD_SIZE; row++) {
+         if (hasWinningPatternInRow(row, player)) {
+            return true;
+         }
+      }
+
+      // Check columns
+      for (int col = 0; col < BOARD_SIZE; col++) {
+         if (hasWinningPatternInColumn(col, player)) {
+            return true;
+         }
+      }
+
+      // Check diagonals
+      for (int row = 0; row < BOARD_SIZE - 4; row++) {
+         for (int col = 0; col < BOARD_SIZE - 4; col++) {
+            if (hasWinningPatternInDiagonal(row, col, player) ||
+                  hasWinningPatternInAntiDiagonal(row, col, player)) {
+               return true;
+            }
+         }
+      }
+
+      return false;
+   }
+
+   private boolean hasWinningPatternInRow(int row, int player) {
+      for (int col = 0; col <= BOARD_SIZE - 5; col++) {
+         if (isWinningPattern(row, col, 0, 1, player)) {
+            return true;
+         }
+      }
+      return false;
+   }
+
+   private boolean hasWinningPatternInColumn(int col, int player) {
+      for (int row = 0; row <= BOARD_SIZE - 5; row++) {
+         if (isWinningPattern(row, col, 1, 0, player)) {
+            return true;
+         }
+      }
+      return false;
+   }
+
+   private boolean hasWinningPatternInDiagonal(int row, int col, int player) {
+      return isWinningPattern(row, col, 1, 1, player);
+   }
+
+   private boolean hasWinningPatternInAntiDiagonal(int row, int col, int player) {
+      return isWinningPattern(row, col, 1, -1, player);
+   }
+
+   private boolean isWinningPattern(int row, int col, int rowIncrement, int colIncrement, int player) {
+      int[] pattern = new int[5];
+
+      for (int i = 0; i < 5; i++) {
+         if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
+            return false; // Out of bounds, not a winning pattern
+         }
+         pattern[i] = board[row][col].getContents();
+         row += rowIncrement;
+         col += colIncrement;
+      }
+
+      return isWinningPattern(pattern, player);
+   }
+
+   private boolean isWinningPattern(int[] pattern, int player) {
+      int pegBit = (player == PLAYER_0) ? Peg5Cell.GREEN_PEG : Peg5Cell.YELLOW_PEG;
+      int openTubeBit = (player == PLAYER_0) ? Peg5Cell.GREEN_OPEN_TUBE : Peg5Cell.YELLOW_OPEN_TUBE;
+      int closedTubeBit = (player == PLAYER_0) ? Peg5Cell.GREEN_CLOSED_TUBE : Peg5Cell.YELLOW_CLOSED_TUBE;
+
+      // Check for PPtPP pattern
+      if ((pattern[0] & pegBit) != 0 && (pattern[1] & pegBit) != 0 &&
+            ((pattern[2] & openTubeBit) != 0 || (pattern[2] & closedTubeBit) != 0) &&
+            (pattern[3] & pegBit) != 0 && (pattern[4] & pegBit) != 0) {
+         return true;
+      }
+
+      // Check for PtPtP pattern
+      if ((pattern[0] & pegBit) != 0 &&
+            ((pattern[1] & openTubeBit) != 0 || (pattern[1] & closedTubeBit) != 0) &&
+            (pattern[2] & pegBit) != 0 &&
+            ((pattern[3] & openTubeBit) != 0 || (pattern[3] & closedTubeBit) != 0) &&
+            (pattern[4] & pegBit) != 0) {
+         return true;
+      }
+
+      // Check for PtttP pattern
+      if ((pattern[0] & pegBit) != 0 &&
+            ((pattern[1] & openTubeBit) != 0 || (pattern[1] & closedTubeBit) != 0) &&
+            ((pattern[2] & openTubeBit) != 0 || (pattern[2] & closedTubeBit) != 0) &&
+            ((pattern[3] & openTubeBit) != 0 || (pattern[3] & closedTubeBit) != 0) &&
+            (pattern[4] & pegBit) != 0) {
+         return true;
+      }
+
+      return false;
+   }
+
+   private int count4CellPattern(int row, int col, int player) {
+      int count = 0;
+
+      // Check horizontal pattern
+      if (col <= BOARD_SIZE - 5) {
+         int pattern = 0;
+         for (int i = 0; i < 5; i++) {
+            if (board[row][col + i].hasPiece(player)) {
+               pattern++;
+            }
+         }
+         if (pattern == 4 && canPlacePieceAt(row, col + 4, player)) {
+            count++;
+         }
+      }
+
+      // Check vertical pattern
+      if (row <= BOARD_SIZE - 5) {
+         int pattern = 0;
+         for (int i = 0; i < 5; i++) {
+            if (board[row + i][col].hasPiece(player)) {
+               pattern++;
+            }
+         }
+         if (pattern == 4 && canPlacePieceAt(row + 4, col, player)) {
+            count++;
+         }
+      }
+
+      // Check diagonal pattern (top-left to bottom-right)
+      if (row <= BOARD_SIZE - 5 && col <= BOARD_SIZE - 5) {
+         int pattern = 0;
+         for (int i = 0; i < 5; i++) {
+            if (board[row + i][col + i].hasPiece(player)) {
+               pattern++;
+            }
+         }
+         if (pattern == 4 && canPlacePieceAt(row + 4, col + 4, player)) {
+            count++;
+         }
+      }
+
+      // Check diagonal pattern (top-right to bottom-left)
+      if (row <= BOARD_SIZE - 5 && col >= 4) {
+         int pattern = 0;
+         for (int i = 0; i < 5; i++) {
+            if (board[row + i][col - i].hasPiece(player)) {
+               pattern++;
+            }
+         }
+         if (pattern == 4 && canPlacePieceAt(row + 4, col - 4, player)) {
+            count++;
+         }
+      }
+
+      return count;
+   }
+
+   private int count3CellPattern(int row, int col, int player) {
+      int count = 0;
+
+      // Check horizontal pattern
+      if (col <= BOARD_SIZE - 5) {
+         int pattern = 0;
+         for (int i = 0; i < 5; i++) {
+            if (board[row][col + i].hasPiece(player)) {
+               pattern++;
+            }
+         }
+         if (pattern == 3 && canPlacePieceAt(row, col + 3, player) && canPlacePieceAt(row, col + 4, player)) {
+            count++;
+         }
+      }
+
+      // Check vertical pattern
+      if (row <= BOARD_SIZE - 5) {
+         int pattern = 0;
+         for (int i = 0; i < 5; i++) {
+            if (board[row + i][col].hasPiece(player)) {
+               pattern++;
+            }
+         }
+         if (pattern == 3 && canPlacePieceAt(row + 3, col, player) && canPlacePieceAt(row + 4, col, player)) {
+            count++;
+         }
+      }
+
+      // Check diagonal pattern (top-left to bottom-right)
+      if (row <= BOARD_SIZE - 5 && col <= BOARD_SIZE - 5) {
+         int pattern = 0;
+         for (int i = 0; i < 5; i++) {
+            if (board[row + i][col + i].hasPiece(player)) {
+               pattern++;
+            }
+         }
+         if (pattern == 3 && canPlacePieceAt(row + 3, col + 3, player) && canPlacePieceAt(row + 4, col + 4, player)) {
+            count++;
+         }
+      }
+
+      // Check diagonal pattern (top-right to bottom-left)
+      if (row <= BOARD_SIZE - 5 && col >= 4) {
+         int pattern = 0;
+         for (int i = 0; i < 5; i++) {
+            if (board[row + i][col - i].hasPiece(player)) {
+               pattern++;
+            }
+         }
+         if (pattern == 3 && canPlacePieceAt(row + 3, col - 3, player) && canPlacePieceAt(row + 4, col - 4, player)) {
+            count++;
+         }
+      }
+
+      return count;
+   }
+
+   private boolean canPlacePieceAt(int row, int col, int player) {
+      return board[row][col].canPlacePeg(player) || board[row][col].canPlaceTube(player);
+   }
+
+   // Return all valid moves for the current player
+   @Override
+   public List<Board.Move> getValidMoves() {
+      List<Board.Move> validMoves = new ArrayList<>();
+
+      // Check for placing moves
+      for (int row = 0; row < BOARD_SIZE; row++) {
+         for (int col = 0; col < BOARD_SIZE; col++) {
+            Peg5Cell cell = board[row][col];
+
+            if (canPlacePeg(row, col, player)) {
+               validMoves.add(new Peg5Move(Peg5Move.PieceType.PEG, row, col));
+            }
+
+            if (canPlaceTube(row, col, player)) {
+               if (player == PLAYER_0 && greenUnplayedPieces[1] > 0) {
+                  validMoves.add(new Peg5Move(Peg5Move.PieceType.OPEN_TUBE, row, col));
+               } else if (player == PLAYER_1 && yellowUnplayedPieces[1] > 0) {
+                  validMoves.add(new Peg5Move(Peg5Move.PieceType.OPEN_TUBE, row, col));
+               }
+
+               if (player == PLAYER_0 && greenUnplayedPieces[2] > 0) {
+                  validMoves.add(new Peg5Move(Peg5Move.PieceType.CLOSED_TUBE, row, col));
+               } else if (player == PLAYER_1 && yellowUnplayedPieces[2] > 0) {
+                  validMoves.add(new Peg5Move(Peg5Move.PieceType.CLOSED_TUBE, row, col));
+               }
+            }
+         }
+      }
+
+      // Check for repositioning moves
+      if (player == PLAYER_0 && greenUnplayedPieces[0] == 0) {
+         for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int col = 0; col < BOARD_SIZE; col++) {
+               Peg5Cell cell = board[row][col];
+
+               if (cell.hasGreenPeg()) {
+                  validMoves.addAll(getRepositioningMoves(row, col, Peg5Move.PieceType.PEG));
+               }
+            }
+         }
+      } else if (player == PLAYER_1 && yellowUnplayedPieces[0] == 0) {
+         for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int col = 0; col < BOARD_SIZE; col++) {
+               Peg5Cell cell = board[row][col];
+
+               if (cell.hasYellowPeg()) {
+                  validMoves.addAll(getRepositioningMoves(row, col, Peg5Move.PieceType.PEG));
+               }
+            }
+         }
+      }
+
+      if (player == PLAYER_0 && greenUnplayedPieces[1] == 0 && greenUnplayedPieces[2] == 0) {
+         for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int col = 0; col < BOARD_SIZE; col++) {
+               Peg5Cell cell = board[row][col];
+
+               if (cell.hasGreenOpenTube()) {
+                  validMoves.addAll(getRepositioningMoves(row, col, Peg5Move.PieceType.OPEN_TUBE));
+               }
+               if (cell.hasGreenClosedTube()) {
+                  validMoves.addAll(getRepositioningMoves(row, col, Peg5Move.PieceType.CLOSED_TUBE));
+               }
+            }
+         }
+      } else if (player == PLAYER_1 && yellowUnplayedPieces[1] == 0 && yellowUnplayedPieces[2] == 0) {
+         for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int col = 0; col < BOARD_SIZE; col++) {
+               Peg5Cell cell = board[row][col];
+
+               if (cell.hasYellowOpenTube()) {
+                  validMoves.addAll(getRepositioningMoves(row, col, Peg5Move.PieceType.OPEN_TUBE));
+               }
+               if (cell.hasYellowClosedTube()) {
+                  validMoves.addAll(getRepositioningMoves(row, col, Peg5Move.PieceType.CLOSED_TUBE));
+               }
+            }
+         }
+      }
+
+      // Sort the valid moves
+      Collections.sort(validMoves, Board.Move::compareTo);
+
+      return validMoves;
+   }
+
+   private List<Peg5Move> getRepositioningMoves(int sourceRow, int sourceCol, Peg5Move.PieceType pieceType) {
+      List<Peg5Move> repositioningMoves = new ArrayList<>();
+
+      for (int row = 0; row < BOARD_SIZE; row++) {
+         for (int col = 0; col < BOARD_SIZE; col++) {
+            if (pieceType == Peg5Move.PieceType.PEG && canPlacePeg(row, col, player)) {
+               repositioningMoves.add(new Peg5Move(pieceType, row, col, sourceRow, sourceCol));
+            } else if ((pieceType == Peg5Move.PieceType.OPEN_TUBE || pieceType == Peg5Move.PieceType.CLOSED_TUBE)
+                  && canPlaceTube(row, col, player)) {
+               repositioningMoves.add(new Peg5Move(pieceType, row, col, sourceRow, sourceCol));
+            }
+         }
+      }
+
+      return repositioningMoves;
+   }
+
+   // Return the current player
+   @Override
+   public int getCurrentPlayer() {
+      return player;
+   }
+
+   // Return the move history
+   @Override
+   public List<? extends Board.Move> getMoveHistory() {
+      return moveHistory;
+   }
+
+   // Undo the last move
+   @Override
+   public void undoMove() {
+      if (!moveHistory.isEmpty()) {
+         Peg5Move lastMove = moveHistory.remove(moveHistory.size() - 1);
+         moveCount--;
+         player = -player;
+
+         int row = lastMove.getRow();
+         int col = lastMove.getCol();
+         Peg5Cell cell = board[row][col];
+
+         if (lastMove.getPieceType() == Peg5Move.PieceType.PEG) {
+            if (player == PLAYER_0) {
+               cell.removeGreenPeg();
+               greenUnplayedPieces[0]++;
+            } else {
+               cell.removeYellowPeg();
+               yellowUnplayedPieces[0]++;
+            }
+         } else if (lastMove.getPieceType() == Peg5Move.PieceType.OPEN_TUBE) {
+            if (player == PLAYER_0) {
+               cell.removeGreenOpenTube();
+               greenUnplayedPieces[1]++;
+            } else {
+               cell.removeYellowOpenTube();
+               yellowUnplayedPieces[1]++;
+            }
+         } else if (lastMove.getPieceType() == Peg5Move.PieceType.CLOSED_TUBE) {
+            if (player == PLAYER_0) {
+               cell.removeGreenClosedTube();
+               greenUnplayedPieces[2]++;
+            } else {
+               cell.removeYellowClosedTube();
+               yellowUnplayedPieces[2]++;
+            }
+         }
+
+         if (lastMove.isRepositioningMove()) {
+            int sourceRow = lastMove.getSourceRow();
+            int sourceCol = lastMove.getSourceCol();
+            Peg5Cell sourceCell = board[sourceRow][sourceCol];
+
+            if (player == PLAYER_0) {
+               if (lastMove.getPieceType() == Peg5Move.PieceType.PEG) {
+                  sourceCell.setGreenPeg();
+               } else if (lastMove.getPieceType() == Peg5Move.PieceType.OPEN_TUBE) {
+                  sourceCell.setGreenOpenTube();
+               } else if (lastMove.getPieceType() == Peg5Move.PieceType.CLOSED_TUBE) {
+                  sourceCell.setGreenClosedTube();
+               }
+            } else {
+               if (lastMove.getPieceType() == Peg5Move.PieceType.PEG) {
+                  sourceCell.setYellowPeg();
+               } else if (lastMove.getPieceType() == Peg5Move.PieceType.OPEN_TUBE) {
+                  sourceCell.setYellowOpenTube();
+               } else if (lastMove.getPieceType() == Peg5Move.PieceType.CLOSED_TUBE) {
+                  sourceCell.setYellowClosedTube();
+               }
+            }
+         }
+      }
+   }
+   @Override
+public String toString() {
+    StringBuilder sb = new StringBuilder();
+
+    // Display Green's unplayed pieces
+    sb.append(String.format("%" + 10 + "s", String.join("", Collections.nCopies(greenUnplayedPieces[0], "G")))).append("\n");
+    sb.append(String.format("%" + 10 + "s", String.join(" ", Collections.nCopies(greenUnplayedPieces[1], "Og"))))
+       .append(" ")
+       .append(String.format("%" + 10 + "s", String.join(" ", Collections.nCopies(greenUnplayedPieces[2], "-g"))))
+       .append("\n\n\n");
+
+    // Display the board
+    sb.append(" ").append(" ").append(" 1  2  3  4  5  6  7\n"); // Add spacing for row numbers
+    for (int row = 0; row < BOARD_SIZE; row++) {
+        sb.append(String.format("%2d", row + 1)); // Left-justify row numbers with 2 spaces
+        for (int col = 0; col < BOARD_SIZE; col++) {
+            Peg5Cell cell = board[row][col];
+            String cellStr = getCellString(cell);
+            sb.append(String.format(" %-2s", cellStr)); // Left-justify cell strings with 2 spaces
+        }
+        sb.append("\n");
+    }
+    sb.append("\n\n");
+
+    // Display Yellow's unplayed pieces
+    sb.append("").append(String.format("%" + 10 + "s", String.join(" ", Collections.nCopies(yellowUnplayedPieces[1], "Oy"))))
+       .append(" ")
+       .append(String.format("%" + 10 + "s", String.join(" ", Collections.nCopies(yellowUnplayedPieces[2], "-y"))))
+       .append("\n")
+       .append(String.format("%" + 10 + "s", String.join("", Collections.nCopies(yellowUnplayedPieces[0], "Y")))).append("\n\n");
+
+    // Display the current player's turn
+    sb.append(player == PLAYER_0 ? "Green to play" : "Yellow to play");
+
+    return sb.toString();
+}
+   private String getCellString(Peg5Cell cell) {
+      int contents = cell.getContents();
+
+      if ((contents & Peg5Cell.GREEN_PEG) != 0) {
+         if ((contents & Peg5Cell.YELLOW_OPEN_TUBE) != 0) {
+            return "Gy";
+         } else {
+            return "G";
+         }
+      } else if ((contents & Peg5Cell.YELLOW_PEG) != 0) {
+         if ((contents & Peg5Cell.GREEN_OPEN_TUBE) != 0) {
+            return "Yg";
+         } else {
+            return "Y";
+         }
+      } else if ((contents & Peg5Cell.GREEN_OPEN_TUBE) != 0) {
+         return "Og";
+      } else if ((contents & Peg5Cell.GREEN_CLOSED_TUBE) != 0) {
+         return "-g";
+      } else if ((contents & Peg5Cell.YELLOW_OPEN_TUBE) != 0) {
+         return "Oy";
+      } else if ((contents & Peg5Cell.YELLOW_CLOSED_TUBE) != 0) {
+         return "-y";
+      } else {
+         return ".";
+      }
+   }
+}
