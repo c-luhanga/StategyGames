@@ -38,7 +38,7 @@ class Peg5BoardTest {
         Peg5Move move = (Peg5Move) board.createMove();
         // Configure move as needed based on your game's logic
         move.type = 1; // Assuming type '1' is a valid type for Player 0
-        move.position = new Position(0, 0); // Position the move at the start of the board
+        move.position = new Position(0, 0, (byte) 0); // Position the move at the start of the board
         board.applyMove(move);
         assertEquals(1, board.getMoveHistory().size(), "Move history size should be 1 after applying a move");
 
@@ -50,7 +50,7 @@ class Peg5BoardTest {
     @Test
     void testInvalidMoveApplication() {
         Peg5Move move = (Peg5Move) board.createMove();
-        move.position = new Position(-1, -1); // Invalid position
+        move.position = new Position(-1, -1, (byte) 0); // Invalid position
         assertThrows(Board.InvalidMoveException.class, () -> board.applyMove(move),
                 "Applying an invalid move should throw an InvalidMoveException");
     }
@@ -84,7 +84,7 @@ class Peg5BoardTest {
     @Test
     void testPeg5MoveToString() {
         Peg5Move move = (Peg5Move) board.createMove(); // Cast to Peg5Move
-        move.position = new Position(3, 4);
+        move.position = new Position(3, 4, (byte) 0);
         assertEquals("Peg5Move at (4, 5)", move.toString(), "Peg5Move toString should return 'Peg5Move at (4, 5)'");
     }
 

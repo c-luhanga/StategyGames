@@ -1,45 +1,35 @@
 package edu.principia.charles.OODesign.StrategyGames.Peg5;
 
+import java.util.Stack;
+
 public class Position {
     public int row;
     public int col;
-    public int owner; // Might use -1, 0, 1 for no player, player1, player2 etc.
     public byte pieceType; // This could be an enum or byte depending on how pieces are defined
+    private Stack<Byte> history; // Stack to keep track of history for undo functionality
 
-    // Constructor
-    public Position(int row, int col) {
+    // Constructor for position with piece type
+    public Position(int row, int col, byte i) {
         this.row = row;
         this.col = col;
-        this.pieceType = 0; // Default to no piece
-        this.owner = 0; // Default to no owner
+        this.pieceType = i;
+        this.history = new Stack<>();
     }
 
-    public Position(int row, int col, byte pieceType, int owner) {
-        this.row = row;
-        this.col = col;
-        this.pieceType = pieceType;
-        this.owner = owner;
+    // Update piece type for this position
+    public void updatePieceType(byte newPieceType) {
+        history.push(pieceType); // Save current state before updating
+        this.pieceType = newPieceType;
     }
 
-    // Getters
-    public int getRow() {
-        return row;
-    }
-
-    public int getColumn() {
-        return col;
-    }
-
-    public int getPlayer() {
-        return owner;
-    }
-
-    public byte getPiece() {
-        return pieceType;
+    public void undoUpdate() {
+        if (!history.isEmpty()) {
+            this.pieceType = history.pop(); // Revert to the last saved state
+        }
     }
 
     @Override
     public String toString() {
-        return String.format("Position(%d, %d) Type: %d Owner: %d", row, col, pieceType, owner);
+        return String.format("Position(%d, %d) Type: %d", row, col, pieceType);
     }
 }

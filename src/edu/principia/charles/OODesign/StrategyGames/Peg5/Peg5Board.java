@@ -1,30 +1,27 @@
 package edu.principia.charles.OODesign.StrategyGames.Peg5;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-
 import edu.principia.OODesign.StrategyGames.Board.Board;
 
 public class Peg5Board implements Board {
     public class Peg5Move implements Board.Move, Serializable {
-        public byte type; // Type of piece (peg, open tube, closed tube)
+        private static final long serialVersionUID = 1L;
+
+        public static byte type; // Type of piece (peg, open tube, closed tube)
         public Position position; // Target position of the move
-        public boolean isTransfer; // Indicates if this is a transfer move
-        public Position fromPosition; // Original position for transfer moves
+        private boolean isTransfer; // Indicates if this is a transfer move
+        private Position fromPosition; // Original position for transfer moves
 
         // Constructors
         public Peg5Move() {
-            this.type = 0;
-            this.position = new Position(currentPlayer, currentPlayer);
-            this.isTransfer = false;
-            this.fromPosition = new Position(currentPlayer, currentPlayer);
+            this((byte) 0, new Position(0, 0, type), false, new Position(0, 0, type));
         }
 
         public Peg5Move(byte type, Position position, boolean isTransfer, Position fromPosition) {
@@ -34,23 +31,29 @@ public class Peg5Board implements Board {
             this.fromPosition = fromPosition;
         }
 
+        // Getters and setters for encapsulation
+        public byte getType() {
+            return type;
+        }
+
+        public Position getPosition() {
+            return position;
+        }
+
+        public boolean isTransfer() {
+            return isTransfer;
+        }
+
+        public Position getFromPosition() {
+            return fromPosition;
+        }
+
         @Override
         public void write(OutputStream os) throws IOException {
-            // Start with 1 byte for the type, 4 bytes each for row and col, plus 1 byte for
-            // the transfer flag
-            int bufferSize = 1 + 4 + 4 + 1; // Basic move size
+            ByteBuffer buffer = ByteBuffer.allocate(isTransfer ? 17 : 9);
+            buffer.put(type).putInt(position.row).putInt(position.col).put((byte) (isTransfer ? 1 : 0));
             if (isTransfer) {
-                // Add additional 8 bytes for the fromPosition if it's a transfer move
-                bufferSize += 4 + 4;
-            }
-            ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
-            buffer.put(type);
-            buffer.putInt(position.row);
-            buffer.putInt(position.col);
-            buffer.put((byte) (isTransfer ? 1 : 0)); // Transfer flag
-            if (isTransfer) {
-                buffer.putInt(fromPosition.row);
-                buffer.putInt(fromPosition.col);
+                buffer.putInt(fromPosition.row).putInt(fromPosition.col);
             }
             os.write(buffer.array());
 
@@ -58,72 +61,47 @@ public class Peg5Board implements Board {
 
         @Override
         public void read(InputStream is) throws IOException {
-            // Read the minimum required data first
-            byte[] baseData = new byte[1 + 4 + 4 + 1]; // Type, row, col, and transfer flag
-            is.read(baseData);
-            ByteBuffer buffer = ByteBuffer.wrap(baseData);
-            this.type = buffer.get();
-            this.position = new Position(buffer.getInt(), buffer.getInt());
-            byte transferFlag = buffer.get();
-
-            if (transferFlag == 1) {
-                this.isTransfer = true;
-                // If it's a transfer, read additional 8 bytes
-                byte[] transferData = new byte[4 + 4];
-                is.read(transferData);
-                ByteBuffer transferBuffer = ByteBuffer.wrap(transferData);
-                this.fromPosition = new Position(transferBuffer.getInt(), transferBuffer.getInt());
-            } else {
-                this.isTransfer = false;
+            byte[] data = new byte[isTransfer ? 17 : 9];
+            is.read(data);
+            ByteBuffer buffer = ByteBuffer.wrap(data);
+            type = buffer.get();
+            position = new Position(buffer.getInt(), buffer.getInt(), type);
+            isTransfer = buffer.get() == 1;
+            if (isTransfer) {
+                fromPosition = new Position(buffer.getInt(), buffer.getInt(), type);
             }
         }
 
         @Override
         public void fromString(String s) throws IOException {
             try {
-                s = s.trim(); // Remove any leading or trailing whitespace
-                String[] parts = s.split("\\s+"); // Split by spaces to separate parts
+                s = s.trim(); // Trim whitespace
+                String[] parts = s.split("\\s+"); // Split by whitespace
 
-                // Part 0: Move type (e.g., "peg", "open", "closed")
+                // Extract move type from string
                 String typePart = parts[0].toLowerCase();
-                switch (typePart) {
-                    case "peg":
-                        this.type = (currentPlayer == PLAYER_0 ? GREEN_PEG : YELLOW_PEG); // Assuming default to Green
-                                                                                          // for simplicity; adjust
-                                                                                          // based on
-                        // currentPlayer or context
-                        break;
-                    case "open":
-                        this.type = (currentPlayer == PLAYER_0 ? OPEN_GREEN_TUBE : OPEN_YELLOW_TUBE); // Assuming
-                                                                                                      // default to
-                                                                                                      // Green Open Tube
-                        break;
-                    case "closed":
-                        this.type = (currentPlayer == PLAYER_0 ? CLOSED_GREEN_TUBE : CLOSED_YELLOW_TUBE); // Assuming
-                                                                                                          // default to
-                                                                                                          // Green
-                                                                                                          // Closed Tube
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unknown piece type: " + typePart);
-                }
+                this.type = switch (typePart) {
+                    case "peg" -> currentPlayer == PLAYER_0 ? GREEN_PEG : YELLOW_PEG;
+                    case "open" -> currentPlayer == PLAYER_0 ? OPEN_GREEN_TUBE : OPEN_YELLOW_TUBE;
+                    case "closed" -> currentPlayer == PLAYER_0 ? CLOSED_GREEN_TUBE : CLOSED_YELLOW_TUBE;
+                    default -> throw new IllegalArgumentException("Unknown piece type: " + typePart);
+                };
 
-                // Part 1: Move position (e.g., "(2,3)")
-                String positionPart = parts[1].replaceAll("[()]", ""); // Strip parentheses
+                // Parse position from the string (assuming format "(x,y)")
+                String positionPart = parts[1].replaceAll("[()]", "");
                 String[] coordinates = positionPart.split(",");
-                int row = Integer.parseInt(coordinates[0].trim()) - 1; // Convert to 0-based index
-                int col = Integer.parseInt(coordinates[1].trim()) - 1; // Convert to 0-based index
-                this.position = new Position(row, col);
+                int row = Integer.parseInt(coordinates[0].trim()) - 1;
+                int col = Integer.parseInt(coordinates[1].trim()) - 1;
+                this.position = new Position(row, col, type);
 
                 // Check if there is a transfer part (indicated by "<-")
                 if (s.contains("<-")) {
                     this.isTransfer = true;
-                    // Part 3: Original position (e.g., "(5,3)")
-                    String fromPositionPart = parts[3].replaceAll("[()]", ""); // Strip parentheses
+                    String fromPositionPart = parts[3].replaceAll("[()]", "");
                     coordinates = fromPositionPart.split(",");
-                    int fromRow = Integer.parseInt(coordinates[0].trim()) - 1; // Convert to 0-based index
-                    int fromCol = Integer.parseInt(coordinates[1].trim()) - 1; // Convert to 0-based index
-                    this.fromPosition = new Position(fromRow, fromCol);
+                    int fromRow = Integer.parseInt(coordinates[0].trim()) - 1;
+                    int fromCol = Integer.parseInt(coordinates[1].trim()) - 1;
+                    this.fromPosition = new Position(fromRow, fromCol, type);
                 } else {
                     this.isTransfer = false;
                 }
@@ -134,14 +112,19 @@ public class Peg5Board implements Board {
 
         @Override
         public int compareTo(Move o) {
+            if (!(o instanceof Peg5Move)) {
+                return 0;
+            }
             Peg5Move other = (Peg5Move) o;
-            // First compare by position, then by type
-            int rowCompare = Integer.compare(this.position.getRow(), other.position.getRow());
-            if (rowCompare != 0)
-                return rowCompare;
-            int colCompare = Integer.compare(this.position.getColumn(), other.position.getColumn());
-            if (colCompare != 0)
-                return colCompare;
+            // Compare rows first
+            int rowComparison = Integer.compare(this.position.row, other.position.row);
+            if (rowComparison != 0)
+                return rowComparison;
+            // If rows are the same, compare columns
+            int colComparison = Integer.compare(this.position.col, other.position.col);
+            if (colComparison != 0)
+                return colComparison;
+            // If positions are the same, compare types
             return Byte.compare(this.type, other.type);
         }
 
@@ -160,33 +143,33 @@ public class Peg5Board implements Board {
         }
 
         private String getTypeName() {
-            switch (this.type) {
-                case 1, 2:
-                    return "peg";
-                case 3, 5:
-                    return "open";
-                case 4, 6:
-                    return "closed";
-                default:
-                    return "unknown";
-            }
-
+            return switch (type) {
+                case 1 -> "Green Peg";
+                case 2 -> "Yellow Peg";
+                case 3 -> "Green Open Tube";
+                case 4 -> "Green Closed Tube";
+                case 5 -> "Yellow Open Tube";
+                case 6 -> "Yellow Closed Tube";
+                default -> "Unknown";
+            };
         }
     }
 
     public static final int BOARD_SIZE = 7;
     public byte[][] board;
-    public int currentPlayer;
-    public List<Peg5Move> moveHistory;
-    public List<Group> activeGroups; // List to keep track of active groups
+    private int currentPlayer;
+    private List<Peg5Move> moveHistory;
+    private List<Group> activeGroups; // List to keep track of active groups
     private GroupManager groupManager;
-    public static final byte NONE = 0;
+
+    private static final byte NONE = 0;
     public static final byte GREEN_PEG = 1;
-    public static final byte YELLOW_PEG = 2;
-    public static final byte OPEN_GREEN_TUBE = 3;
-    public static final byte CLOSED_GREEN_TUBE = 4;
-    public static final byte OPEN_YELLOW_TUBE = 5;
-    public static final byte CLOSED_YELLOW_TUBE = 6;
+    private static final byte YELLOW_PEG = 2;
+    private static final byte OPEN_GREEN_TUBE = 3;
+    private static final byte CLOSED_GREEN_TUBE = 4;
+    private static final byte OPEN_YELLOW_TUBE = 5;
+    private static final byte CLOSED_YELLOW_TUBE = 6;
+
     private int[] greenUnplayedPegs = { 10 }; // Initially 10 green pegs
     private int[] yellowUnplayedPegs = { 10 }; // Initially 10 yellow pegs
     private int[] greenUnplayedOpenTubes = { 4 }; // Initially 4 green open tubes
@@ -214,10 +197,10 @@ public class Peg5Board implements Board {
         this.board = new byte[BOARD_SIZE][BOARD_SIZE];
         for (int i = 0; i < BOARD_SIZE; i++) {
             for (int j = 0; j < BOARD_SIZE; j++) {
-                board[i][j] = encodePiece(NONE, NONE);
+                board[i][j] = encodePiece(NONE, NONE); // All cells initialized to empty
             }
         }
-        this.currentPlayer = PLAYER_0;
+        this.currentPlayer = PLAYER_0; // Game starts with player 0
         this.moveHistory = new ArrayList<>();
         this.groupManager = new GroupManager(this);
         this.activeGroups = new ArrayList<>();
@@ -236,118 +219,88 @@ public class Peg5Board implements Board {
         Peg5Move move = (Peg5Move) m;
         decrementPieceCount(move);
 
-        // Validate the move first
+        // Validate and apply the move
         if (!isMoveValid(move, move.position.row, move.position.col)) {
-            System.out.println("Move not valid: " + move); // Debugging output
             throw new InvalidMoveException("Move is not valid");
         }
-        // If the move is valid, apply it to the board
         updateBoard(move);
-
-        groupManager.updateGroupsAfterMove(move);
-        // Log the move for undo functionality and history tracking
+        groupManager.updateGroupsAfterMove(move.position, move.type);
         moveHistory.add(move);
-        // Update any groups or scoring mechanisms if necessary
-        updateGroups(move);
-        // Switch to the next player
         currentPlayer = -currentPlayer;
+
+        // After move application, check for win condition
+        if (checkForWinCondition()) {
+            System.out.println("Win detected!");
+        }
+    }
+
+    private boolean checkForWinCondition() {
+        for (Group group : groupManager.groups) {
+            if (WinPatterns.isWinningLine(group.getPositionsAsLine(), (byte) currentPlayer)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void decrementPieceCount(Peg5Move move) {
-        if (currentPlayer == PLAYER_0) {
-            switch (move.type) {
-                case GREEN_PEG:
-                    greenUnplayedPegs[0]--;
-                    break;
-                case OPEN_GREEN_TUBE:
-                    greenUnplayedOpenTubes[0]--;
-                    break;
-                case CLOSED_GREEN_TUBE:
-                    greenUnplayedClosedTubes[0]--;
-                    break;
-            }
-        } else {
-            switch (move.type) {
-                case YELLOW_PEG:
-                    yellowUnplayedPegs[0]--;
-                    break;
-                case OPEN_YELLOW_TUBE:
-                    yellowUnplayedOpenTubes[0]--;
-                    break;
-                case CLOSED_YELLOW_TUBE:
-                    yellowUnplayedClosedTubes[0]--;
-                    break;
-            }
+        int[] unplayedPieces = currentPlayer == PLAYER_0 ? greenUnplayedPegs : yellowUnplayedPegs;
+        switch (move.type) {
+            case GREEN_PEG:
+            case YELLOW_PEG:
+                unplayedPieces[0]--;
+                break;
+            case OPEN_GREEN_TUBE:
+            case OPEN_YELLOW_TUBE:
+                unplayedPieces[1]--;
+                break;
+            case CLOSED_GREEN_TUBE:
+            case CLOSED_YELLOW_TUBE:
+                unplayedPieces[2]--;
+                break;
         }
-    }
-
-    private void updateGroups(Peg5Move move) {
-        // Apply move to board, updating pieces
-        board[move.position.row][move.position.col] = move.type;
-
-        // Clear old position if it is a transfer move
-        if (move.isTransfer) {
-            board[move.fromPosition.row][move.fromPosition.col] = 0;
-        }
-        System.out.println("Updating groups after move: " + move);
-        // Assuming 'groupManager' is a field in Peg5Board that manages groups
-        groupManager.updateGroupsAfterMove(move);
     }
 
     private void updateBoard(Peg5Move move) {
-        byte originContent = 0; // Assume empty initially
+        byte originContent = move.isTransfer ? board[move.fromPosition.row][move.fromPosition.col] : NONE;
+        byte destContent = board[move.position.row][move.position.col];
+
+        // Clear the origin only if it's a transfer move
         if (move.isTransfer) {
-            // Save the content from the origin position
-            originContent = board[move.fromPosition.row][move.fromPosition.col];
-            // check if the origin position is a peg with a tube
-            if (decodePeg(originContent) != NONE && decodeTube(originContent) != NONE) {
-                // If the origin position has both a peg and a tube, we need to move the
-                // requested item
-                // from the origin to the destination and leave the other item behind
-                // check if move being transferred is a peg or tube and move the corresponding
-                // item to the destination
-                if (move.type <= YELLOW_PEG) {
-                    // If the move is a peg, we need to move the tube from the origin to the
-                    // destination
-                    move.type = decodeTube(originContent);
-                } else if (move.type >= OPEN_GREEN_TUBE) {
-                    // If the move is a tube, we need to move the peg from the origin to the
-                    // destination
-                    move.type = decodePeg(originContent);
-                }
+            // Determine what remains at the source location after the move
+            byte remainingPeg = decodePeg(originContent);
+            byte remainingTube = decodeTube(originContent);
+
+            if (move.type == GREEN_PEG || move.type == YELLOW_PEG) {
+                remainingPeg = NONE; // The peg is moving, tube may stay
+            } else if (move.type == OPEN_GREEN_TUBE || move.type == OPEN_YELLOW_TUBE || move.type == CLOSED_GREEN_TUBE
+                    || move.type == CLOSED_YELLOW_TUBE) {
+                remainingTube = NONE; // The tube is moving, peg may stay
+            }
+
+            // Update the source cell
+            board[move.fromPosition.row][move.fromPosition.col] = encodePiece(remainingPeg, remainingTube);
+        }
+
+        // Determine new content at the destination
+        byte newPeg = decodePeg(destContent);
+        byte newTube = decodeTube(destContent);
+
+        if (move.type == GREEN_PEG || move.type == YELLOW_PEG) {
+            newPeg = move.type; // Place the peg
+        } else if (move.type == OPEN_GREEN_TUBE || move.type == OPEN_YELLOW_TUBE) {
+            newTube = move.type; // Place an open tube
+        } else if (move.type == CLOSED_GREEN_TUBE || move.type == CLOSED_YELLOW_TUBE) {
+            if (destContent == NONE) {
+                newTube = move.type; // Only place closed tube if destination is empty
             } else {
-                // Clear the original position since we are transferring the piece
-                board[move.fromPosition.row][move.fromPosition.col] = encodePiece(NONE, NONE);
+                // If trying to place a closed tube on a non-empty cell, raise an exception
+                System.out.print("Cannot place a closed tube on a non-empty cell.");
             }
         }
 
-        // Get the current content of the target cell where the piece will be placed or
-        // transferred
-        byte targetContent = board[move.position.row][move.position.col];
-        byte targetPeg = decodePeg(targetContent);
-        byte targetTube = decodeTube(targetContent);
-
-        // If transferring, use the peg and tube from the origin if applicable
-        if (move.isTransfer) {
-            byte originPeg = decodePeg(originContent);
-            byte originTube = decodeTube(originContent);
-            if (move.type <= YELLOW_PEG) {
-                targetPeg = originPeg;
-            } else if (move.type >= OPEN_GREEN_TUBE) {
-                targetTube = originTube;
-            }
-        }
-
-        // Calculate the new content of the target position based on the move type
-        if (move.type <= YELLOW_PEG) {
-            // For pegs, replace the peg part of the target position
-            targetPeg = move.type;
-        } else if (move.type >= OPEN_GREEN_TUBE) {
-            // For tubes, replace the tube part of the target position
-            targetTube = move.type;
-        }
-        // Encode the new state back into the board at the target position
-        board[move.position.row][move.position.col] = encodePiece(targetPeg, targetTube);
+        // Update the destination cell with the new configuration
+        board[move.position.row][move.position.col] = encodePiece(newPeg, newTube);
     }
 
     private boolean isMoveValid(Peg5Move move, int row, int col) {
@@ -356,13 +309,13 @@ public class Peg5Board implements Board {
         // Check if the specified positions are within the bounds of the board
         if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
             System.out.println("Move out of bounds");
-
             return false;
         }
 
-        // Decode the source and destination pieces
-        byte sourcePiece = move.isTransfer ? board[move.fromPosition.row][move.fromPosition.col] : 0;
+        // Decode the source and destination pieces if it's a transfer, otherwise
+        // consider the destination directly
         byte destPiece = board[row][col];
+        byte sourcePiece = move.isTransfer ? board[move.fromPosition.row][move.fromPosition.col] : NONE;
 
         // Ensure the destination is compatible with the intended move
         if (!isCompatible(sourcePiece, destPiece, move.isTransfer)) {
@@ -371,109 +324,80 @@ public class Peg5Board implements Board {
         }
 
         // Check if the placement or movement is valid based on the piece type
-        if (!isPlacementValid(move.type, row, col, move.isTransfer)) {
+        if (!isPlacementValid(move.type, row, col, destPiece)) {
             System.out.println("Placement invalid");
             return false;
         }
 
         System.out.println("Move valid");
-        return isMoveTypeValid(move.type);
+        return true;
     }
 
-    private boolean isMoveTypeValid(byte type) {
-        if (currentPlayer == PLAYER_0) {
-            return type == GREEN_PEG || type == OPEN_GREEN_TUBE || type == CLOSED_GREEN_TUBE;
-        } else if (currentPlayer == PLAYER_1) {
-            return type == YELLOW_PEG || type == OPEN_YELLOW_TUBE || type == CLOSED_YELLOW_TUBE;
+    private boolean isPlacementValid(byte type, int row, int col, byte destPiece) {
+        if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
+            System.out.println("Move out of bounds");
+            return false;
         }
 
-        return false;
-    }
+        byte destContent = board[row][col];
+        byte destPeg = decodePeg(destContent);
+        byte destTube = decodeTube(destContent);
 
-    private boolean isPlacementValid(byte type, int row, int col, boolean isTransfer) {
-        if (isTransfer && ((board[row][col] == 0 || decodeTube(board[row][col]) == OPEN_GREEN_TUBE
-                || decodeTube(board[row][col]) == OPEN_YELLOW_TUBE || decodeTube(board[row][col]) == NONE))) {
-            return true;
-        }
-        // Check if the placement is valid based on the piece type
-        System.out.println("Checking placement for type: " + type);
         switch (type) {
             case GREEN_PEG:
-                // check if the peg is placed in empty cell or in a cell where a open tube is
-                // placed
-                return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE
-                        && (board[row][col] == 0 || board[row][col] == OPEN_YELLOW_TUBE
-                                || board[row][col] == OPEN_GREEN_TUBE);
             case YELLOW_PEG:
-                // check if the peg is placed in empty cell or in a cell where a open tube is
-                // placed
-                return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE
-                        && (board[row][col] == 0 || decodeTube(board[row][col]) == OPEN_GREEN_TUBE
-                                || decodeTube(type) == OPEN_YELLOW_TUBE);
+                // Pegs can be placed in an empty space or on any open tube
+                return destPeg == NONE
+                        && (destTube == NONE || destTube == OPEN_GREEN_TUBE || destTube == OPEN_YELLOW_TUBE);
             case OPEN_GREEN_TUBE:
-                // check if the tube is placed in empty cell or in a cell where a peg is placed
-                return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE
-                        && (board[row][col] == 0 || decodePeg(board[row][col]) == GREEN_PEG
-                                || decodePeg(board[row][col]) == YELLOW_PEG);
-            case CLOSED_GREEN_TUBE:
-                return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE && board[row][col] == 0;
             case OPEN_YELLOW_TUBE:
-                return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE
-                        && (board[row][col] == 0 || decodePeg(board[row][col]) == YELLOW_PEG
-                                || decodePeg(board[row][col]) == GREEN_PEG);
+                // Open tubes can be placed in an empty space or on any peg
+                return destTube == NONE && (destPeg == NONE || destPeg == GREEN_PEG || destPeg == YELLOW_PEG);
+            case CLOSED_GREEN_TUBE:
             case CLOSED_YELLOW_TUBE:
-                return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE && board[row][col] == 0;
+                // Closed tubes can only be placed in an empty space
+                return destPeg == NONE && destTube == NONE;
             default:
+                System.out.println("Unknown piece type: " + type);
                 return false;
         }
     }
 
     private boolean isCompatible(byte sourcePiece, byte destPiece, boolean isTransfer) {
-        int sourcePeg = decodePeg(sourcePiece);
-        int sourceTube = decodeTube(sourcePiece);
-        int destPeg = decodePeg(destPiece);
-        int destTube = decodeTube(destPiece);
+        if (!isTransfer) {
+            return (destPiece == NONE);
+        } else {
+            byte sourcePeg = decodePeg(sourcePiece);
+            byte sourceTube = decodeTube(sourcePiece);
+            byte destPeg = decodePeg(destPiece);
+            byte destTube = decodeTube(destPiece);
 
-        if (!isTransfer || destPiece != OPEN_GREEN_TUBE || destPiece != OPEN_YELLOW_TUBE
-                || destPiece != NONE) {
-            return false; // If not a transfer, destination must be empty unless specific
-            // interactions are
-            // allowed
+            // If transferring a peg, destination can only be an empty space or have a tube
+            if (sourcePeg != NONE && (destPeg == NONE || destTube != NONE)) {
+                return true;
+            }
+            // If transferring an open tube, destination can only be an empty space or have
+            // a peg
+            if (sourceTube != NONE && (destTube == NONE || destPeg != NONE)) {
+                return true;
+            }
+            // If transferring a closed tube, destination can only be an empty space (no peg
+            // or tube)
+            if (sourceTube == NONE && sourcePeg == NONE && destPeg == NONE && destTube == NONE) {
+                return true;
+            }
         }
-        // Check compatibility of placing or transferring a piece into another
-        switch (sourcePeg) {
-            case GREEN_PEG:
-                // Green peg can be placed in an open tube or empty space
-                return destTube == OPEN_YELLOW_TUBE || destTube == NONE || destTube == OPEN_GREEN_TUBE;
-            case YELLOW_PEG:
-                // Yellow peg can be placed in an open tube or empty space
-                return destTube == OPEN_GREEN_TUBE || destTube == NONE || destTube == OPEN_YELLOW_TUBE;
-        }
-
-        // Additional checks if it's a tube interaction
-        // closed Tubes cannot be placed where a peg exists
-        if (sourceTube == CLOSED_GREEN_TUBE || sourceTube == CLOSED_YELLOW_TUBE) {
-            return destPeg == NONE;
-        }
-        return true;
+        return false;
     }
 
     @Override
     public int getValue() {
         System.out.println("Evaluating board value");
-        int greenScore = 0;
-        int yellowScore = 0;
-        for (Group group : activeGroups) {
-            System.out.println("Group (getValue): " + group);
-            if (group.owner == PLAYER_0) {
-                System.out.println("Green Group (getvals): " + group);
-                greenScore += group.evaluateScore();
-            } else {
-                System.out.println("Yellow Group (getvals): " + group);
-                yellowScore += group.evaluateScore();
-            }
+        int score = 0;
+        for (Group group : groupManager.groups) {
+            score += WinPatterns.evaluateLineScore(group.getPositionsAsLine(), (byte) currentPlayer);
         }
-        return greenScore - yellowScore;
+        return score;
     }
 
     @Override
@@ -488,7 +412,7 @@ public class Peg5Board implements Board {
                 // Generate placement moves if the position is empty
                 if (pieceAtPosition == 0) {
                     for (byte pieceType : pieceTypes) {
-                        validMoves.add(new Peg5Move(pieceType, new Position(row, col), false, null));
+                        validMoves.add(new Peg5Move(pieceType, new Position(row, col, pieceType), false, null));
                     }
                 }
                 // Generate transfer moves if all pieces of the type have been placed
@@ -533,7 +457,8 @@ public class Peg5Board implements Board {
             for (int col = 0; col < BOARD_SIZE; col++) {
                 if (board[row][col] == 0) {
                     validMoves
-                            .add(new Peg5Move(pieceType, new Position(row, col), true, new Position(fromRow, fromCol)));
+                            .add(new Peg5Move(pieceType, new Position(row, col, pieceType), true,
+                                    new Position(fromRow, fromCol, pieceType)));
                 }
             }
         }
@@ -552,7 +477,7 @@ public class Peg5Board implements Board {
     @Override
     public void undoMove() {
         if (moveHistory.isEmpty()) {
-            return; // Nothing to undo if the history is empty
+            return; // No move to undo if history is empty
         }
 
         Peg5Move lastMove = moveHistory.remove(moveHistory.size() - 1);
@@ -562,18 +487,16 @@ public class Peg5Board implements Board {
         byte pegAtDest = decodePeg(pieceAtDest);
         byte tubeAtDest = decodeTube(pieceAtDest);
 
+        // Restore the board state
         if (lastMove.isTransfer) {
-            // TODO: Check if the transfer is valid, revist this logic
-            if (pegAtDest != NONE && tubeAtDest != NONE) {
-                // If the destination has both a peg and a tube, we need to clear the tube
-                board[lastMove.position.row][lastMove.position.col] = encodePiece(pegAtDest, NONE);
-            } else {
-                // Clear the destination position since we are transferring the piece
-                board[lastMove.position.row][lastMove.position.col] = 0;
-            }
+            // Move the piece back to its original position
+            byte pieceAtSource = board[lastMove.fromPosition.row][lastMove.fromPosition.col];
+            board[lastMove.position.row][lastMove.position.col] = encodePiece(decodePeg(pieceAtSource),
+                    decodeTube(pieceAtSource));
+            board[lastMove.fromPosition.row][lastMove.fromPosition.col] = encodePiece(pegAtDest, tubeAtDest);
         } else {
-            // If it was not a transfer, just clear the destination
-            board[lastMove.position.row][lastMove.position.col] = 0;
+            // Clear the destination position since it was not a transfer
+            board[lastMove.position.row][lastMove.position.col] = encodePiece(NONE, NONE);
         }
 
         // Increment the count of the unplayed pieces
@@ -605,6 +528,8 @@ public class Peg5Board implements Board {
             }
         }
         // Switch back to the previous player
+        groupManager.undoLastMove(lastMove);
+
         currentPlayer = -currentPlayer;
     }
 
@@ -612,37 +537,43 @@ public class Peg5Board implements Board {
     public String toString() {
         StringBuilder sb = new StringBuilder();
 
-        // Append header for the board, showing unplayed pieces or any preliminary
-        // information
-        sb.append("Green Unplayed: Pegs=").append(greenUnplayedPegs[0]).append(", Open Tubes=")
-                .append(greenUnplayedOpenTubes[0]).append(", Closed Tubes=").append(greenUnplayedClosedTubes[0])
+        // Display Green's unplayed pieces
+        sb.append(String.format("%10s", String.join("", Collections.nCopies(greenUnplayedPegs[0], "G"))))
                 .append("\n");
-        sb.append("Yellow Unplayed: Pegs=").append(yellowUnplayedPegs[0]).append(", Open Tubes=")
-                .append(yellowUnplayedOpenTubes[0]).append(", Closed Tubes=").append(yellowUnplayedClosedTubes[0])
-                .append("\n");
+        sb.append(String.format("%10s", String.join(" ", Collections.nCopies(greenUnplayedOpenTubes[0], "Og"))))
+                .append(" ")
+                .append(String.format("%10s", String.join(" ", Collections.nCopies(greenUnplayedClosedTubes[0], "-g"))))
+                .append("\n\n");
 
-        // Append the actual board with row and column labels
-        sb.append("  "); // Leading space for row numbers
-        for (int i = 0; i < BOARD_SIZE; i++) {
-            sb.append(String.format("%3d", i + 1)); // Print column numbers
+        // Display the board with column headers
+        sb.append("   "); // Space for row labels
+        for (int i = 1; i <= BOARD_SIZE; i++) {
+            sb.append(String.format("%3d", i));
         }
         sb.append("\n");
 
         for (int row = 0; row < BOARD_SIZE; row++) {
-            sb.append(String.format("%2d", row + 1)); // Print row number
+            sb.append(String.format("%2d ", row + 1)); // Row label
             for (int col = 0; col < BOARD_SIZE; col++) {
-                sb.append(String.format("%3s", pieceToString(board[row][col]))); // Convert each piece code to a string
+                sb.append(String.format("%3s", pieceToString(board[row][col])));
             }
             sb.append("\n");
         }
+        sb.append("\n");
 
-        // Append footer with current game status or additional info
-        sb.append("Current Player: ").append(currentPlayer == PLAYER_0 ? "Green" : "Yellow").append(" to play\n");
-        sb.append(groupManager.toString()).append("\n");
-        sb.append("Active Groups: ");
-        for (Group group : activeGroups) {
-            sb.append(group.toString()).append(", ");
-        }
+        // Display Yellow's unplayed pieces
+        sb.append(String.format("%10s", String.join(" ", Collections.nCopies(yellowUnplayedOpenTubes[0], "Oy"))))
+                .append(" ")
+                .append(String.format("%10s",
+                        String.join(" ", Collections.nCopies(yellowUnplayedClosedTubes[0], "-y"))))
+                .append("\n");
+        sb.append(String.format("%10s", String.join("", Collections.nCopies(yellowUnplayedPegs[0], "Y"))))
+                .append("\n\n");
+
+        // Display the current player's turn
+        sb.append(currentPlayer == PLAYER_0 ? "Green to play" : "Yellow to play")
+                .append("\n");
+
         return sb.toString();
     }
 
@@ -671,63 +602,4 @@ public class Peg5Board implements Board {
                 }
         }
     }
-
-    // public static void main(String[] args) {
-    // // Set up the board instance to test
-    // Peg5Board board = new Peg5Board();
-    // board.currentPlayer = PLAYER_0; // Start with player 0
-
-    // // Print the board before any moves
-    // System.out.println("Initial Board:");
-    // System.out.println(board);
-
-    // // Test placement of each type of peg and tube on the board
-    // byte[] types = { GREEN_PEG, YELLOW_PEG, OPEN_GREEN_TUBE, CLOSED_GREEN_TUBE,
-    // OPEN_YELLOW_TUBE,
-    // CLOSED_YELLOW_TUBE };
-    // int testRow = 0, testCol = 0;
-
-    // for (byte type : types) {
-    // // Create and apply move
-    // Peg5Move testMove = board.new Peg5Move(type, new Position(testRow, testCol),
-    // false, null);
-    // try {
-    // board.applyMove(testMove);
-    // System.out.println("After placing " + testMove.getTypeName() + " at (" +
-    // (testRow + 1) + ","
-    // + (testCol + 1) + "):");
-    // System.out.println(board);
-    // } catch (InvalidMoveException e) {
-    // System.out.println("Failed to place " + testMove.getTypeName() + " at (" +
-    // (testRow + 1) + ","
-    // + (testCol + 1) + "): " + e.getMessage());
-    // }
-
-    // // Prepare next test position
-    // testCol++;
-    // if (testCol >= BOARD_SIZE) {
-    // testCol = 0;
-    // testRow++;
-    // }
-    // }
-
-    // // Test transfers if applicable
-    // // Assuming we want to test a transfer from the first position to the last
-    // if (BOARD_SIZE > 1) { // Ensure the board is large enough
-    // byte type = GREEN_PEG; // Change as needed
-    // Peg5Move transferMove = board.new Peg5Move(type, new Position(BOARD_SIZE - 1,
-    // BOARD_SIZE - 1), true,
-    // new Position(0, 0));
-    // try {
-    // board.applyMove(transferMove);
-    // System.out.println("After transferring " + transferMove.getTypeName() + " to
-    // (" + BOARD_SIZE + ","
-    // + BOARD_SIZE + "):");
-    // System.out.println(board);
-    // } catch (InvalidMoveException e) {
-    // System.out.println("Failed to transfer " + transferMove.getTypeName() + ": "
-    // + e.getMessage());
-    // }
-    // }
-    // }
 }
