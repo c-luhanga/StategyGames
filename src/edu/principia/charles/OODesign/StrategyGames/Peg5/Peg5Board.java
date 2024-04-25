@@ -144,12 +144,12 @@ public class Peg5Board implements Board {
 
         private String getTypeName() {
             return switch (type) {
-                case 1 -> "Green Peg";
-                case 2 -> "Yellow Peg";
-                case 3 -> "Green Open Tube";
-                case 4 -> "Green Closed Tube";
-                case 5 -> "Yellow Open Tube";
-                case 6 -> "Yellow Closed Tube";
+                case 1 -> "Peg";
+                case 2 -> "Peg";
+                case 3 -> "Tube";
+                case 4 -> "Tube";
+                case 5 -> "Tube";
+                case 6 -> "Tube";
                 default -> "Unknown";
             };
         }
@@ -159,7 +159,6 @@ public class Peg5Board implements Board {
     public byte[][] board;
     private int currentPlayer;
     private List<Peg5Move> moveHistory;
-    private List<Group> activeGroups; // List to keep track of active groups
     private GroupManager groupManager;
 
     private static final byte NONE = 0;
@@ -203,7 +202,6 @@ public class Peg5Board implements Board {
         this.currentPlayer = PLAYER_0; // Game starts with player 0
         this.moveHistory = new ArrayList<>();
         this.groupManager = new GroupManager(this);
-        this.activeGroups = new ArrayList<>();
     }
 
     @Override
