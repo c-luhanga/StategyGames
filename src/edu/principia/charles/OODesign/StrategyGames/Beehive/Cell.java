@@ -159,4 +159,9 @@ public class Cell {
     public BridgeGroup getGroup() {
         return group;
     }
+
+    public List<Cell> getCell(int row2, int middleCol1) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getCell'");
+    }
 }

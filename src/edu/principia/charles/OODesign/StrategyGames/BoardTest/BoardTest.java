@@ -380,8 +380,6 @@ public class BoardTest {
                     moveHistory.remove(moveHistory.size() - 1);
                 }
                 currentMove = moveHistory.isEmpty() ? null : moveHistory.get(moveHistory.size() - 1);
-                System.out.println("BoardTest MoveHistory size: " + moveHistory.size());
-                System.out.println("Game moveHistory size: " + currentBoard.getMoveHistory().size());
             } else {
                 int moveNum = rnd.nextInt(moves.size());
                 try {

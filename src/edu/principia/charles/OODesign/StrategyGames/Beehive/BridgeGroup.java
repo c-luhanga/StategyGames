@@ -102,8 +102,19 @@ public class BridgeGroup {
     }
 
     private boolean isBridge(Cell cell, Cell existingCell) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'isBridge'");
+        // Example for horizontal direction; implement for other directions similarly
+        int dx = Math.abs(cell.getCol() - existingCell.getCol());
+        int dy = Math.abs(cell.getRow() - existingCell.getRow());
+
+        if (dx == 2 && dy == 0) { // Horizontal bridge
+            int middleCol1 = (cell.getCol() + existingCell.getCol()) / 2;
+            if (cell.getCell(cell.getRow(), middleCol1).isEmpty()) {
+                return true;
+            }
+        }
+        // Add other directional checks (vertical, diagonal) based on game rules
+        return false;
+
     }
 
     public void add(Cell cell) {
