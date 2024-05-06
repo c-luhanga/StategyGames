@@ -2,7 +2,7 @@ package edu.principia.charles.OODesign.StrategyGames.BoardTest;
 
 import java.util.Scanner;
 
-import edu.principia.OODesign.StrategyGames.Board.Board;
+import edu.principia.OODesign.StrategyGames.Board;
 import edu.principia.charles.OODesign.StrategyGames.AiSolver.AiSolver;
 
 import java.io.FileInputStream;
@@ -206,7 +206,6 @@ public class BoardTest {
     }
 
     private void doMove(String move) {
-        System.out.println("Doing move: " + move);
         enterMove(move);
         applyMove();
         moveHistory.add(currentMove);
@@ -216,7 +215,6 @@ public class BoardTest {
     private void undoMoves(int numMoves) {
         int movesToUndo = Math.min(numMoves, moveHistory.size());
         for (int i = 0; i < movesToUndo; i++) {
-            System.out.println("Undoing move: " + moveHistory.get(moveHistory.size() - 1));
             currentBoard.undoMove();
             moveHistory.remove(moveHistory.size() - 1);
         }

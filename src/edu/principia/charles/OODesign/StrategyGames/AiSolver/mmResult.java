@@ -1,6 +1,6 @@
 package edu.principia.charles.OODesign.StrategyGames.AiSolver;
 
-import edu.principia.OODesign.StrategyGames.Board.Board;
+import edu.principia.OODesign.StrategyGames.Board;
 
 public class mmResult {
     int Values; // The value of the move

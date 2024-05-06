@@ -8,7 +8,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import edu.principia.OODesign.StrategyGames.Board.Board;
+
+import edu.principia.OODesign.StrategyGames.Board;
 
 public class Peg5Board implements Board {
     public class Peg5Move implements Board.Move, Serializable {

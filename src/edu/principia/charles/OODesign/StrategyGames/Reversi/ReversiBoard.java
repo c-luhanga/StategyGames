@@ -6,7 +6,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import edu.principia.OODesign.StrategyGames.Board.Board;
+import edu.principia.OODesign.StrategyGames.Board;
 
 public class ReversiBoard implements Board, Serializable {
     // Class representing row/col pair, either a location or a direction

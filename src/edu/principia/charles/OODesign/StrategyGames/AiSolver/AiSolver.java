@@ -2,7 +2,7 @@ package edu.principia.charles.OODesign.StrategyGames.AiSolver;
 
 import java.util.List;
 
-import edu.principia.OODesign.StrategyGames.Board.Board;
+import edu.principia.OODesign.StrategyGames.Board;
 
 public class AiSolver {
 

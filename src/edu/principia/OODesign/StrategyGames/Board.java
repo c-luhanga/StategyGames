@@ -1,4 +1,4 @@
-package edu.principia.OODesign.StrategyGames.Board;
+package edu.principia.OODesign.StrategyGames;
 
 import java.io.InputStream;
 import java.io.OutputStream;

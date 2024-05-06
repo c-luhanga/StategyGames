@@ -3,158 +3,77 @@ package edu.principia.charles.OODesign.StrategyGames.Beehive;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.stream.Collectors;
+import edu.principia.OODesign.StrategyGames.Board;
 
-import edu.principia.OODesign.StrategyGames.Board.Board;
-
-/**
- * BeehiveBoard Class Development Guide with Integrated Components
- * 
- * Overview:
- * BeehiveBoard acts as the central hub for the Beehive game logic, interfacing
- * directly with game-specific classes such as Cell, Location, Connections, and
- * BridgeGroup to manage the game state, enforce rules, and evaluate win
- * conditions on an 11x11 hexagonal grid.
- * 
- * Requirements:
- * - Manage the board's cell states and their interconnections to facilitate
- * game play, ensuring compliance with the game's rules including piece
- * placement and the swap rule.
- * - Utilize the Cell, Location, Connections, and BridgeGroup classes to
- * represent and manipulate the game board's state efficiently.
- * - Implement game logic to check win conditions based on the connectivity of
- * cells across the board.
- * 
- * Member Variables:
- * - cells: A 2D array of Cell objects representing the hexagonal grid of the
- * game board.
- * - currentPlayer: Tracks which player's turn it is, alternating between two
- * players.
- * - connections: An instance of the Connections class to manage adjacency
- * relationships between cells.
- * - bridgeGroups: A list of BridgeGroup objects, each representing a set of
- * connected cells.
- * 
- * Constructor:
- * - Initializes the cells array with empty Cell objects, sets the starting
- * player, and prepares the Connections and BridgeGroup instances.
- * 
- * Key Methods:
- * - applyMove(Move move): Applies a move to the board by updating the relevant
- * Cell state and adjusting the Connections and BridgeGroups accordingly.
- * - isValidMove(Move move): Determines if a proposed move is valid by checking
- * the target Cell's state and compliance with game rules.
- * - checkWin(): Utilizes the BridgeGroup objects to determine if a player has
- * successfully formed a connecting path across the board.
- * - getValidMoves(): Generates and returns a list of all legal moves for the
- * current player, based on the current state of the board and the game's rules.
- * - getCurrentPlayer(): Returns an identifier for the current player.
- * - undoMove(): Reverses the last move made, leveraging the move history to
- * restore the board's previous state.
- * - toString(): Provides a visual representation of the board's current state,
- * useful for debugging or displaying the game in a text-based interface.
- * 
- * Integration with Cell, Location, Connections, and BridgeGroup:
- * - The BeehiveBoard will create and manage Cell objects for each position on
- * the board, using Location objects to track their positions.
- * - The Connections class is used to maintain a record of which cells are
- * adjacent to each other, facilitating the game logic related to piece
- * placement and connectivity.
- * - BridgeGroups are dynamically managed to keep track of connected components
- * on the board, essential for evaluating win conditions and strategic planning.
- * 
- * Additional Considerations:
- * - Consider how the swap rule affects the initialization and application of
- * moves, especially in the context of the first few moves of the game.
- * - Efficiently updating and querying the state of the board and its components
- * is crucial, particularly for performance in evaluating win conditions and
- * generating valid moves.
- */
-public class BeehiveBoard implements Board {
-    public static class BeeHiveMove implements Move, java.io.Serializable {
-        // Implementation of BeeHiveMove
-        int row;
-        int col;
-        public boolean SWAP;
+public class BeehiveBoard implements Board, Serializable {
+    public class BeeHiveBoardMove implements Board.Move, Serializable {
+        public int row;
+        public int col;
+        public boolean swap;
         public int previousOwner;
 
-        public BeeHiveMove() {
-            this.row = -1;
-            this.col = -1;
-            this.SWAP = false;
+        public BeeHiveBoardMove() {
+            this.row = -1; // Initialize row out of valid range
+            this.col = -1; // Initialize column out of valid range
+            this.swap = false; // By default, not a swap move
         }
 
-        public BeeHiveMove(BeeHiveMove move) {
-            this.row = move.row;
-            this.col = move.col;
-            this.SWAP = move.SWAP;
-            previousOwner = move.previousOwner;
-        }
-
-        public BeeHiveMove(int row, int col) {
+        public BeeHiveBoardMove(int row, int col) {
             this.row = row;
             this.col = col;
-            this.SWAP = false;
+            this.swap = false;
         }
 
-        public BeeHiveMove(boolean swap) {
-            this.row = -1;
+        public BeeHiveBoardMove(boolean swap) {
+            this.row = -1; // Swap doesn't need row and column
             this.col = -1;
-            this.SWAP = swap;
-        }
-
-        @Override
-        public int compareTo(Board.Move o) {
-            BeeHiveMove otherMove = (BeeHiveMove) o;
-            if (this.row == otherMove.row) {
-                return Integer.compare(this.col, otherMove.col);
-            } else {
-                return Integer.compare(this.row, otherMove.row);
-            }
+            this.swap = swap;
         }
 
         @Override
         public void write(OutputStream os) throws IOException {
-            if (SWAP)
-                os.write(0);
-            else
-                os.write(((row + 1) << 4) | (col + 1));
-
+            if (swap) {
+                os.write(0); // Represent swap with a unique identifier, e.g., 0
+            } else {
+                int b = (row << 4) | col; // Example packing of row and column
+                os.write(b);
+            }
         }
 
         @Override
         public void read(InputStream is) throws IOException {
-            // Implementation of read method
             int b = is.read();
-            if (b == -1) {
+            if (b == -1)
                 throw new IOException("End of stream");
-            }
+
             if (b == 0) {
-                this.SWAP = true;
+                this.swap = true;
             } else {
-                row = (b >> 4) - 1;
-                col = (b & 0x0F) - 1;
+                this.swap = false;
+                this.row = (b >> 4) & 0x0F; // Extract row
+                this.col = b & 0x0F; // Extract column
             }
         }
 
         @Override
         public void fromString(String s) throws IOException {
-            // Implementation of fromString method
-            if (s.equals("SWAP")) {
-                this.SWAP = true;
-                return;
+            if (s.equals("swap")) {
+                this.swap = true;
             } else {
+                this.swap = false;
                 String[] parts = s.split(",");
                 if (parts.length != 2) {
-                    throw new IOException("Invalid move string");
+                    throw new IOException("Invalid format");
                 }
                 try {
-                    row = Integer.parseInt(parts[0]);
-                    col = Integer.parseInt(parts[1]);
+                    this.row = Integer.parseInt(parts[0].trim()) - 1;
+                    this.col = Integer.parseInt(parts[1].trim()) - 1;
                 } catch (NumberFormatException e) {
                     throw new IOException("Invalid move string");
                 }
@@ -162,80 +81,112 @@ public class BeehiveBoard implements Board {
         }
 
         @Override
+        public int compareTo(Move other) {
+            if (!(other instanceof BeeHiveBoardMove)) {
+                return 0; // Or throw an exception or make this a defined behavior
+            }
+            BeeHiveBoardMove o = (BeeHiveBoardMove) other;
+            if (this.swap && !o.swap) {
+                return -1;
+            } else if (!this.swap && o.swap) {
+                return 1;
+            } else if (this.swap && o.swap) {
+                return 0; // Both are swaps
+            } else {
+                // Compare by row and then by column if not swap
+                if (this.row != o.row) {
+                    return Integer.compare(this.row, o.row);
+                } else {
+                    return Integer.compare(this.col, o.col);
+                }
+            }
+        }
+
+        @Override
         public String toString() {
-            return (row) + "," + (col);
+            if (swap) {
+                return "swap";
+            } else {
+                return row + "," + col;
+            }
         }
     }
 
     private Cell[][] board;
-    private int currentPlayer = 1;
-    private List<BeeHiveMove> moveHistory = new ArrayList<>();
-    private List<Connections> connections = new ArrayList<>();
-    private List<BridgeGroup> bridgeGroups = new ArrayList<>();
-    private boolean hasSwapped = false;
-    private static final int SIZE = 11;
-    private BridgeGroup longestGroup = null;
+    private int currentPlayer;
+    private List<BeeHiveBoardMove> moveHistory;
+    List<Connections> connections;
+    List<BridgeGroup> bridgeGroups;
+    boolean hasSwapped;
+    static final int SIZE = 11;
+    BridgeGroup winningGroup = null;
     private boolean isGameOver = false;
-    private int totalPlayer1 = 0;
-    private int totalPlayer2 = 0;
+    int totalWeightPlayer1 = 0;
+    int totalWeightPlayer2 = 0;
 
     public BeehiveBoard() {
-        // Initialize the board with empty cells
         board = new Cell[SIZE][SIZE];
-        for (int row = 0; row < SIZE; row++) {
-            for (int col = 0; col < SIZE; col++) {
-                Cell currentCell = new Cell(row, col);
-                currentCell.computeAdjacentLocations();
-                currentCell.computeBridgedLocations();
-                board[row][col] = currentCell;
+        currentPlayer = PLAYER_0;
+        moveHistory = new ArrayList<BeeHiveBoardMove>();
+        connections = new ArrayList<Connections>();
+        bridgeGroups = new ArrayList<BridgeGroup>();
+        hasSwapped = false;
+        initializeBoard();
+    }
+
+    private void initializeBoard() {
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                board[i][j] = new Cell(i, j);
             }
         }
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                board[i][j].computeAdj();
+                board[i][j].computeBridge();
+            }
+        }
+
     }
 
     @Override
     public Move createMove() {
-        return new BeeHiveMove();
+        return new BeeHiveBoardMove();
     }
 
     @Override
-    public void applyMove(Move m) throws Board.InvalidMoveException {
+    public void applyMove(Move m) throws InvalidMoveException {
         try {
-            // Check if the game is already over
             if (isGameOver) {
                 throw new Board.InvalidMoveException("Game is over");
             }
+            BeeHiveBoardMove move = (BeeHiveBoardMove) m;
 
-            // Cast and validate the move
-            BeeHiveMove move = new BeeHiveMove(BeeHiveMove.class.cast(m));
-            if (move.row < 1 || move.row > 11 || move.col < 1 || move.col > 11 && !(move.row == -1 && move.col == -1)) {
-                throw new Board.InvalidMoveException("Move out of bounds" + move.row + " " + move.col);
+            System.out.println("Attempting move" + move.toString());
+            System.out.println("Attempting move at: row " + move.row + ", col " + move.col);
+
+            if (move.row < 0 || move.row >= SIZE || move.col < 0 || move.col >= SIZE) {
+                throw new Board.InvalidMoveException("Move out of bounds");
             }
-
-            // Clear bridge groups before applying new move
+            // Clear previous bridge groups before recalculating
             bridgeGroups.clear();
 
-            // Handle swap move
-            if (move.SWAP && moveHistory.size() == 1 && !hasSwapped && currentPlayer == 2) {
-                // Perform the swap
-                BeeHiveMove firstMove = moveHistory.get(0);
-                board[firstMove.row - 1][firstMove.col - 1].setOwner(currentPlayer);
-                hasSwapped = true;
+            if (move.swap && moveHistory.size() == 1 && !hasSwapped && currentPlayer == 2) {
+                move.previousOwner = board[move.row][move.col].player;
+                board[move.row][move.col].setOwner(currentPlayer);
                 currentPlayer = 3 - currentPlayer;
-            }
-            // Handle regular move
-            else {
-                // Check if the target cell is already occupied
-                if (board[move.row - 1][move.col - 1].player != 0) {
+                hasSwapped = true;
+            } else {
+                if (board[move.row][move.col].player != 0) {
                     throw new Board.InvalidMoveException("Invalid move");
                 }
-                // Apply the move
-                board[move.row - 1][move.col - 1].setOwner(currentPlayer);
+                move.previousOwner = board[move.row][move.col].player;
+                board[move.row][move.col].player = currentPlayer;
 
-                // Remove any connections that are no longer valid due to this move
                 Connections connectionToRemove = null;
                 for (Connections conn : connections) {
-                    if ((conn.cell1.getRow() == move.row - 1 && conn.cell1.getCol() == move.col - 1) ||
-                            (conn.cell2.getRow() == move.row - 1 && conn.cell2.getCol() == move.col - 1)) {
+                    if ((conn.cell1.row == move.row && conn.cell1.col == move.col) ||
+                            (conn.cell2.row == move.row && conn.cell2.col == move.col)) {
                         connectionToRemove = conn;
                         break;
                     }
@@ -243,16 +194,29 @@ public class BeehiveBoard implements Board {
                 if (connectionToRemove != null) {
                     connections.remove(connectionToRemove);
                 }
-
-                // Switch to the next player
                 currentPlayer = 3 - currentPlayer;
             }
-
-            // After handling the move, add it to move history and reevaluate bridge groups
             moveHistory.add(move);
-            recalculateBridgeGroups();
 
-            // Check if the game is won
+            // Reset and recalculate bridge groups after the move
+            for (Cell[] row : board) {
+                for (Cell c : row) {
+                    c.visited = false;
+                    c.group = null; // Reset group membership
+                }
+            }
+
+            // Recalculate groups after updating the board state
+            for (int row = 0; row < SIZE; row++) {
+                for (int col = 0; col < SIZE; col++) {
+                    if (!board[row][col].visited && board[row][col].player != 0) {
+                        BridgeGroup bg = new BridgeGroup();
+                        dfsFindGroups(board[row][col], bg, board[row][col].player);
+                        bridgeGroups.add(bg);
+                    }
+                }
+            }
+
             int gameState = getValue();
             if (gameState == WIN || gameState == -WIN) {
                 isGameOver = true;
@@ -260,397 +224,319 @@ public class BeehiveBoard implements Board {
         } catch (Board.InvalidMoveException e) {
             System.out.println(e.getMessage());
             System.out.println("Possible moves: " + getValidMoves());
-            throw e; // Optionally rethrow the exception if you want to signal an invalid move beyond
-                     // this method
         }
     }
 
-    private void recalculateBridgeGroups() {
-        // First, reset the 'visited' and 'group' properties for all cells on the board.
-        for (Cell[] row : board) {
-            for (Cell c : row) {
-                c.visited = false;
-                c.group = null;
+    public void dfsFindGroups(Cell c, BridgeGroup bg, int player) {
+        if (c.visited)
+            return; // Already visited this cell
+
+        c.visited = true;
+        if (c.player == player)
+            bg.add(c);
+
+        for (Location adjLoc : c.adjacent) {
+            Cell adjCell = board[adjLoc.row][adjLoc.col];
+            if (!adjCell.visited && adjCell.player == player) {
+                dfsFindGroups(adjCell, bg, player);
             }
         }
 
-        // Clear the list of existing bridge groups before recalculating.
-        bridgeGroups.clear();
+        for (Location bridgeLoc : c.bridged) {
+            Cell bridgeCell = board[bridgeLoc.row][bridgeLoc.col];
+            if (!bridgeCell.visited && bridgeCell.player == player && isValidBridge(c, bridgeCell)) {
+                dfsFindGroups(bridgeCell, bg, player);
+            }
+        }
+    }
 
-        // Iterate over each cell in the board to identify and form new bridge groups.
-        for (int row = 0; row < SIZE; row++) {
-            for (int col = 0; col < SIZE; col++) {
-                Cell currentCell = board[row][col];
-                // Check if the cell has not been visited and belongs to a player.
-                if (!currentCell.visited && currentCell.player != 0) {
-                    BridgeGroup newGroup = new BridgeGroup();
-                    // Perform a depth-first search starting from the current cell to find
-                    // all connected cells that form a bridge group.
-                    BFS(currentCell, newGroup, currentCell.player);
-                    // Add the newly formed bridge group to the list of bridge groups.
-                    bridgeGroups.add(newGroup);
+    public boolean isValidBridge(Cell c1, Cell c2) {
+        if (c1.player != c2.player || c1.adjacent.contains(c2.loc))
+            return false;
+
+        List<Location> intermediateLocations = getIntermediateLocations(c1, c2);
+        for (Location loc : intermediateLocations) {
+            if (board[loc.row][loc.col].player != 0)
+                return false;
+        }
+        return true;
+    }
+
+    public List<Location> getIntermediateLocations(Cell c1, Cell c2) {
+        c1.computeAdj();
+        c2.computeAdj();
+        List<Location> intermediateLocations = new ArrayList<>();
+        for (Location loc1 : c1.adjacent) {
+            for (Location loc2 : c2.adjacent) {
+                if (loc1.equals(loc2) && board[loc1.row][loc1.col].player == 0) {
+                    intermediateLocations.add(loc1);
                 }
             }
         }
+        return intermediateLocations;
+    }
+
+    public void printBridgeGroupsDetailed() {
+        System.out.println("Current Bridge Groups:");
+        for (BridgeGroup bg : bridgeGroups) {
+            System.out.println("--------------------------------");
+            System.out.println("Owned by Player: " + (bg.cells.isEmpty() ? "None" : bg.cells.get(0).player));
+            System.out.println("Group Span: " + bg.getSpan(bg.cells.isEmpty() ? 0 : bg.cells.get(0).player));
+            System.out.println("Cells in Group:");
+            for (Cell c : bg.cells) {
+                System.out.println("Cell at (" + (c.row + 1) + ", " + (c.col + 1) + ")");
+            }
+        }
+        System.out.println("--------------------------------");
     }
 
     @Override
-    // Initially, treat each cell as an independent group. Through Depth-First
-    // Search (DFS),
-    // explore each cell to identify and assemble groups of connected cells, where
-    // connectivity
-    // is determined by adjacency and bridging, and each cell belongs to the same
-    // player. A cell,
-    // once visited, should not be reassigned to another group. Connectivity is
-    // established either
-    // through direct adjacency or via bridging, following specific game rules. This
-    // process utilizes
-    // supporting methods and classes (e.g., Cell, Connection, BridgeGroup, and
-    // Location) for implementation
-    // details.
-    // The game's outcome is determined by the 'isWinning' method, which evaluates
-    // if a player has successfully
-    // connected their cells across the board either from top to bottom or from left
-    // to right. The game is
-    // designed to have a definitive winner, hence it does not support a draw; the
-    // 'isWinning' method is
-    // pivotal in determining the game's winner based on the established connection
-    // criteria.
     public int getValue() {
-        longestGroup = null;
-        totalPlayer1 = 0;
-        totalPlayer2 = 0;
+        // Initialize all cells as their own group and mark them as not visited
+        winningGroup = null;
+        totalWeightPlayer1 = 0;
+        totalWeightPlayer2 = 0;
         bridgeGroups.clear();
 
-        // Mark all cells as unvisited in preparation for group calculation.
+        // Reset all cells to unvisited
         for (int row = 0; row < SIZE; row++) {
             for (int col = 0; col < SIZE; col++) {
                 board[row][col].visited = false;
             }
         }
 
-        // Identify and form bridge groups for cells that belong to a player and have
-        // not been visited.
+        // Find all bridge groups
         for (int row = 0; row < SIZE; row++) {
             for (int col = 0; col < SIZE; col++) {
                 if (!board[row][col].visited && board[row][col].player != 0) {
-                    BridgeGroup newGroup = new BridgeGroup();
-                    BFS(board[row][col], newGroup, board[row][col].player);
-                    bridgeGroups.add(newGroup);
+                    BridgeGroup bg = new BridgeGroup();
+                    dfsFindGroups(board[row][col], bg, board[row][col].player);
+                    bridgeGroups.add(bg);
 
-                    // Accumulate the total weight for each player based on their bridge groups.
                     if (board[row][col].player == 1) {
-                        totalPlayer1 += newGroup.getWeight(1);
+                        totalWeightPlayer1 += bg.getWeight(1);
                     } else {
-                        totalPlayer2 += newGroup.getWeight(2);
+                        totalWeightPlayer2 += bg.getWeight(2);
                     }
                 }
             }
         }
 
-        // Evaluate if any bridge group meets the winning criteria, indicating game
-        // completion.
-        for (BridgeGroup group : bridgeGroups) {
-            if (Winning(group)) {
-                longestGroup = group;
-                return group.getOwner() == 1 ? WIN : -WIN; // Return the win status based on the group's owner.
+        // Check if a player has won
+        for (BridgeGroup bg : bridgeGroups) {
+            if (isWinning(bg)) {
+                winningGroup = bg;
+                return bg.getOwner() == 1 ? WIN : -WIN;
             }
         }
 
-        // If no winning group is found, calculate and return the difference in total
-        // weights as the game state.
-        // This implies the game continues, with the higher weight indicating the
-        // leading player.
-        return totalPlayer1 - totalPlayer2;
+        // Return the difference between the total weights of the groups if no one has
+        // won
+        return totalWeightPlayer1 - totalWeightPlayer2;
     }
 
-    /**
-     * Checks if a given cell is part of any bridge group, indicating strategic
-     * importance.
-     * This is a simplified stand-in for potentially more complex
-     * bridge-participation checks.
-     * 
-     * @param cell The cell to check.
-     * @return True if the cell is part of a bridge, false otherwise.
-     */
-    private void BFS(Cell cell, BridgeGroup Bgroup, int player) {
-        // Skip if the cell has already been visited
-        if (cell.visited)
-            return;
-
-        cell.visited = true; // Mark the cell as visited
-
-        // Add the cell to the group if it belongs to the current player
-        if (cell.player == player) {
-            Bgroup.add(cell);
+    private boolean isWinning(BridgeGroup bg) {
+        if (bg == null || bg.cells.isEmpty()) {
+            return false; // No cells in the group means it cannot be a winning group.
         }
-
-        // Explore all adjacent cells
-        for (Location adjacentLocation : cell.adjacent) {
-            Cell adjacentCell = board[adjacentLocation.row][adjacentLocation.col];
-            // Recursively explore if the adjacent cell is unvisited and belongs to the same
-            // player
-            if (!adjacentCell.visited && adjacentCell.player == player) {
-                BFS(adjacentCell, Bgroup, player);
-            }
-        }
-
-        // Explore all cells connected by bridges
-        for (Location bridgedLocation : cell.bridged) {
-            Cell bridgedCell = board[bridgedLocation.row][bridgedLocation.col];
-            // Check for valid bridges and if the bridged cell can be part of the group
-            if (!bridgedCell.visited && bridgedCell.player == player && isValidBridge(cell, bridgedCell)) {
-                BFS(bridgedCell, Bgroup, player);
-            }
+        // Check winning condition based on the player.
+        if (bg.cells.get(0).player == 1) {
+            return spansLeftToRight(bg); // Player 1 might win by spanning left to right.
+        } else {
+            return spansTopToBottom(bg); // Player 2 might win by spanning top to bottom.
         }
     }
 
-    public boolean isValidBridge(Cell firstCell, Cell secondCell) {
-        // Check if the bridge between two cells is valid
-        // Return true if the bridge is valid, false otherwise
+    private boolean spansLeftToRight(BridgeGroup bg) {
+        List<Cell> leftEdgeCells = bg.cells.stream().filter(c -> c.col == 0).collect(Collectors.toList());
+        bg.cells.forEach(c -> c.visited = false); // Reset visited for traversal.
 
-        // Add more conditions to check if the bridge is valid
-        // For example, check if the cells are adjacent and empty
-        // or if the cells are connected by a chain of adjacent cells
-
-        // If none of the conditions are met, the bridge is not valid
-        if (firstCell.player == secondCell.player) {
-            return false;
-        }
-
-        List<Location> intermediateLocations = commonLocations(firstCell, secondCell);
-        for (Location location : intermediateLocations) {
-            if (board[location.getRow()][location.getCol()].player != 0) {
-                return false;
+        for (Cell startCell : leftEdgeCells) {
+            if (dfsLeftToRight(startCell, bg)) {
+                return true; // If DFS finds a path to the right edge, win condition is met.
             }
         }
-
-        return true;
-
+        return false; // No path was found spanning left to right.
     }
 
-    private List<Location> commonLocations(Cell firstCell, Cell secondCell) {
-        // Recalculate adjacent locations for both cells to ensure up-to-date
-        // information
-        firstCell.computeAdjacentLocations();
-        secondCell.computeAdjacentLocations();
+    private boolean spansTopToBottom(BridgeGroup bg) {
+        List<Cell> topEdgeCells = bg.cells.stream().filter(c -> c.row == 0).collect(Collectors.toList());
+        bg.cells.forEach(c -> c.visited = false); // Reset visited for new traversal.
 
-        // Prepare lists to hold adjusted adjacent locations for comparison
-        List<Location> adjustedLocationsCellOne = new ArrayList<>();
-        List<Location> adjustedLocationsCellTwo = new ArrayList<>();
-
-        // Adjust and collect adjacent locations for the first cell
-        for (Location location : firstCell.adjacent) {
-            if (location != null) {
-                Location adjustedLocation = new Location(location.row + 1, location.col + 1);
-                adjustedLocationsCellOne.add(adjustedLocation);
+        for (Cell startCell : topEdgeCells) {
+            if (dfsTopToBottom(startCell, bg)) {
+                return true; // If DFS finds a path to the bottom edge, win condition is met.
             }
         }
+        return false; // No path spanning top to bottom.
+    }
 
-        // Adjust and collect adjacent locations for the second cell
-        for (Location location : secondCell.adjacent) {
-            if (location != null) {
-                Location adjustedLocation = new Location(location.row + 1, location.col + 1);
-                adjustedLocationsCellTwo.add(adjustedLocation);
+    private boolean dfsLeftToRight(Cell c, BridgeGroup bg) {
+        if (c.col == 10) { // 10 is the last column index for an 11x11 board.
+            return true; // Reached the rightmost edge, winning condition met.
+        }
+        c.visited = true;
+        for (Location loc : c.adjacent) {
+            Cell adjCell = board[loc.row][loc.col];
+            if (adjCell.player == c.player && !adjCell.visited) {
+                if (dfsLeftToRight(adjCell, bg)) {
+                    return true; // Recursively continue to search right.
+                }
             }
         }
+        return false; // No path found to the right edge.
+    }
 
-        // Determine the common locations between the two cells' adjacent locations
-        List<Location> commonLocations = new ArrayList<>();
-        for (Location location : adjustedLocationsCellOne) {
-            if (adjustedLocationsCellTwo.contains(location)) {
-                commonLocations.add(location);
+    private boolean dfsTopToBottom(Cell c, BridgeGroup bg) {
+        if (c.row == 10) { // 10 is the last row index for an 11x11 board.
+            return true; // Reached the bottom edge, winning condition met.
+        }
+        c.visited = true;
+        for (Location loc : c.adjacent) {
+            Cell adjCell = board[loc.row][loc.col];
+            if (adjCell.player == c.player && !adjCell.visited) {
+                if (dfsTopToBottom(adjCell, bg)) {
+                    return true; // Continue search downwards.
+                }
             }
         }
+        return false; // No path found to the bottom edge.
+    }
 
-        return commonLocations;
+    public void recalculateBridgeGroups() {
+        // Clear existing groups. This might involve resetting group-related properties
+        // in each cell.
+        for (Cell[] row : board) {
+            for (Cell c : row) {
+                c.visited = false;
+                c.group = null; // Reset group membership
+            }
+        }
+        bridgeGroups.clear(); // Clear existing groups
+
+        // Recalculate groups. This will also update the group property in each cell.
+        for (int row = 0; row < SIZE; row++) {
+            for (int col = 0; col < SIZE; col++) {
+                if (!board[row][col].visited && board[row][col].player != 0) {
+                    BridgeGroup bg = new BridgeGroup();
+                    dfsFindGroups(board[row][col], bg, board[row][col].player);
+                    bridgeGroups.add(bg);
+                }
+            }
+        }
     }
 
     @Override
     public List<? extends Move> getValidMoves() {
-        // Generate and return a list of all legal moves for the current player
-        // based on the current state of the board and the game's rules
-        List<BeeHiveMove> validMoves = new ArrayList<>();
-        for (int i = 0; i < SIZE; i++) {
-            for (int j = 0; j < SIZE; j++) {
-                if (board[i][j].player == 0) {
-                    validMoves.add(new BeeHiveMove(i + 1, j + 1));
+        List<BeeHiveBoardMove> validMoves = new ArrayList<>();
+
+        // Check each cell on the board; if it's empty, add a possible move to that
+        // position.
+        for (int r = 0; r < SIZE; r++) {
+            for (int c = 0; c < SIZE; c++) {
+                if (board[r][c].player == 0) { // 0 indicates the cell is empty.
+                    validMoves.add(new BeeHiveBoardMove(r + 1, c + 1)); // Cells are 1-indexed in moves.
                 }
             }
         }
-        if (moveHistory.size() == 1 && !hasSwapped && currentPlayer == 2) {
-            validMoves.add(new BeeHiveMove(true));
+
+        // Add a swap move if only one move has been made so far and no swap has
+        // occurred yet.
+        if (moveHistory.size() == 1 && !hasSwapped) {
+            validMoves.add(new BeeHiveBoardMove(true)); // Add the swap option.
         }
+
+        // If the game has ended (someone has won), clear the list of valid moves.
+        int gameState = getValue();
+        if (gameState == WIN || gameState == -WIN) {
+            validMoves.clear();
+        }
+
         return validMoves;
     }
 
     @Override
     public int getCurrentPlayer() {
-        // Return the identifier for the current player
         return currentPlayer;
     }
 
     @Override
     public List<? extends Move> getMoveHistory() {
-        // Return the move history
         return moveHistory;
     }
 
     @Override
     public void undoMove() {
-        // Undo the last move made
         if (moveHistory.isEmpty()) {
-            return;
+            return; // No moves to undo.
         }
 
-        // Get the last move from the move history
-        BeeHiveMove lastMove = moveHistory.remove(moveHistory.size() - 1);
+        BeeHiveBoardMove lastMove = moveHistory.remove(moveHistory.size() - 1);
+        BeeHiveBoardMove move = new BeeHiveBoardMove();
 
-        // Handle swap move
-        if (lastMove.SWAP) {
-            currentPlayer = 3 - currentPlayer;
-            hasSwapped = false;
-        }
-        // Handle regular move
-        else {
-            // Clear bridge groups before undoing the move
-            bridgeGroups.clear();
+        if (lastMove.swap) {
+            hasSwapped = false; // Reset swap flag since we're undoing the swap.
 
-            // Undo the move by resetting the cell state
-            board[lastMove.row - 1][lastMove.col - 1].setOwner(0);
-
-            // Switch back to the previous player
-            currentPlayer = 3 - currentPlayer;
-        }
-
-        // Recalculate bridge groups after undoing the move
-        recalculateBridgeGroups();
-
-        // Reset the game state if the game was over
-        if (isGameOver) {
-            isGameOver = false;
-        }
-    }
-
-    private boolean spansDirection(BridgeGroup Bgroup, String direction) {
-        List<Cell> edgeCells;
-        if ("leftToRight".equals(direction)) {
-            edgeCells = Bgroup.cells.stream().filter(cell -> cell.getCol() == 0).collect(Collectors.toList());
-        } else if ("topToBottom".equals(direction)) {
-            edgeCells = Bgroup.cells.stream().filter(cell -> cell.getRow() == 0).collect(Collectors.toList());
-        } else {
-            throw new IllegalArgumentException("Invalid direction");
-        }
-
-        Bgroup.cells.forEach(c -> c.visited = false); // Reset visited status for all cells in the group
-
-        Queue<Cell> queue = new LinkedList<>();
-        // Enqueue all edge cells as starting points for the BFS
-        edgeCells.forEach(startCell -> {
-            if (!startCell.visited) {
-                queue.add(startCell);
-                startCell.visited = true;
-            }
-        });
-
-        while (!queue.isEmpty()) {
-            Cell currentCell = queue.poll();
-            // Check for reaching the opposite edge based on the direction
-            if (("leftToRight".equals(direction) && currentCell.getCol() == SIZE - 1) ||
-                    ("topToBottom".equals(direction) && currentCell.getRow() == SIZE - 1)) {
-                return true;
-            }
-
-            // Enqueue all adjacent, unvisited cells belonging to the same player
-            for (Location loc : currentCell.adjacent) {
-                Cell adjCell = board[loc.row][loc.col];
-                if (!adjCell.visited && adjCell.player == currentCell.player) {
-                    queue.add(adjCell);
-                    adjCell.visited = true; // Mark as visited once added to the queue
+            // Assuming the swap action exchanges the ownership of the first move,
+            // and that this move is always at the beginning of the moveHistory list.
+            // You need to revert this change.
+            if (!moveHistory.isEmpty()) {
+                // Revert the ownership of the first move's cell to the original player (Player
+                // 1).
+                BeeHiveBoardMove firstMove = moveHistory.get(0);
+                if (firstMove.row >= 1 && firstMove.row <= 11 && firstMove.col >= 1 && firstMove.col <= 11) {
+                    board[firstMove.row - 1][firstMove.col - 1].player = 1; // Set back to Player 1.
                 }
             }
+        } else {
+            // Regular move - clear the cell.
+            if (move.row >= 1 && move.row <= 11 && move.col >= 1 && move.col <= 11) {
+                board[move.row - 1][move.col - 1].player = 0;
+            }
         }
 
-        return false; // If queue empties without reaching the target edge, it does not span in the
-                      // desired direction
-    }
+        currentPlayer = 3 - currentPlayer; // Adjust the current player accordingly.
 
-    private boolean Winning(BridgeGroup Bgroup) {
-        // Check if the bridge group spans from left to right or top to bottom
-        if (Bgroup == null || Bgroup.cells.isEmpty()) {
-            return false;
+        recalculateBridgeGroups(); // Recalculate bridge groups after the move is undone.
+
+        // Reassess the game state to update gameOver status.
+        isGameOver = false;
+        int gameState = getValue();
+        if (gameState == WIN || gameState == -WIN) {
+            isGameOver = true;
         }
-        return spansDirection(Bgroup, "leftToRight") || spansDirection(Bgroup, "topToBottom");
     }
 
     @Override
-    // Return a string representation of the board
-    // Useful for debugging or displaying the game in a text-based interface
-    // Return a string representation of the board, with " b" for player 1's stones,
-    // " r" for player 2's stones, and " ." for empty cells. Offset each row right
-    // by 1/2 column to make the board look trapezoidal.
-    // Show row and column numbers on the left and top, using "T" and "E" for 10 and
-    // 11. If the game is over, show the cells in the winning group in upper case.
-
-    // Example:
-    // 1 2 3 4 5 6 7 8 9 T E
-    // 1 . . . . . . . . . . .
-    // 2 . . . . . . . . . . .
-    // 3 . . . . r . . . b . b
-    // 4 . . . . . . b . . . .
-    // 5 . . . r b . . b . b .
-    // 6 . . . r r . . . . . .
-    // 7 . . . . . . . . . . .
-    // 8 . . . r . . . . . . .
-    // 9 . . . . . . . . . . .
-    // T . . r . . . . . . . .
-    // E . . . . . . . . . . .
-    // Player 2's move
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        // Add column headers
-        sb.append("  1 2 3 4 5 6 7 8 9 T E\n");
-
-        for (int row = 0; row < SIZE; row++) {
-            // Add row indentation for hexagonal appearance
-            for (int indent = 0; indent < row; indent++) {
+        StringBuilder sb = new StringBuilder("  1 2 3 4 5 6 7 8 9 T E\n");
+        for (int r = 0; r < 11; r++) {
+            for (int i = 0; i < r; i++) {
                 sb.append(" ");
             }
-            // Add row header with 'T' and 'E' for 10 and 11
-            sb.append(row < 9 ? row + 1 : row == 9 ? "T" : "E").append(" ");
-
-            for (int col = 0; col < SIZE; col++) {
-                Cell cell = board[row][col];
-                char cellRepresentation = '.'; // Default for empty cell
-
-                // Check if the cell is part of the winning group, if the game is over
-                boolean isInWinningGroup = isGameOver && longestGroup != null && longestGroup.cells.contains(cell);
-
-                if (cell.player == 1) {
-                    cellRepresentation = isInWinningGroup ? 'B' : 'b'; // Uppercase 'B' for winning path, else 'b'
-                } else if (cell.player == 2) {
-                    cellRepresentation = isInWinningGroup ? 'R' : 'r'; // Uppercase 'R' for winning path, else 'r'
+            sb.append(r < 9 ? (char) ('1' + r) : r == 9 ? "T" : "E").append(" ");
+            for (int c = 0; c < 11; c++) {
+                Cell currentCell = board[r][c];
+                if (currentCell.player == 0) {
+                    sb.append(".");
+                } else {
+                    char displayChar = currentCell.player == 1 ? 'b' : 'r';
+                    // Check if currentCell is in the winning group and convert to uppercase if so
+                    if (winningGroup != null && winningGroup.cells.contains(currentCell)) {
+                        displayChar = Character.toUpperCase(displayChar);
+                    }
+                    sb.append(displayChar);
                 }
-
-                sb.append(cellRepresentation).append(" "); // Add cell representation and space for next cell
+                if (c < 10) {
+                    sb.append(" ");
+                }
             }
-            sb.append("\n"); // New line at the end of each row
+            sb.append("\n");
         }
-
-        // Optional: Append additional game state information
-        sb.append("Player ").append(currentPlayer == 1 ? "1" : "2").append("'s turn.\n");
         if (isGameOver) {
-            sb.append("Player ").append(longestGroup.getOwner() == 1 ? "1 has won." : "2 has won.").append("\n");
+            getValue();
         }
-        sb.append("\nBridge Groups:\n");
-        for (int i = 0; i < bridgeGroups.size(); i++) {
-            BridgeGroup group = bridgeGroups.get(i);
-            sb.append("Group ").append(i + 1).append(": ");
-            sb.append("Owner = ").append(group.getOwner() == 1 ? "1" : "2").append(", ");
-            sb.append("Size = ").append(group.cells.size()).append("\n");
-        }
-
         return sb.toString();
-
     }
+
 }

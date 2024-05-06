@@ -3,10 +3,9 @@ package edu.principia.charles.OODesign.StrategyGames.TicTacToe;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
-import edu.principia.OODesign.StrategyGames.Board.Board;
+import edu.principia.OODesign.StrategyGames.Board;
 
 public class TicTacToeBoard implements Board, java.io.Serializable {
     public class TicTacToeMove implements Move, java.io.Serializable {
