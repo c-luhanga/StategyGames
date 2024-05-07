@@ -340,24 +340,14 @@ public class BoardTest {
         Random rnd = new Random(seed);
         for (int i = 0; i < moveCount; i++) {
             List<? extends Board.Move> moves = currentBoard.getValidMoves();
-            if (moves.isEmpty()) {
-                System.out.println("Game is a draw.");
-                showBoard();
-                break;
-            }
             int n = rnd.nextInt(moves.size());
             try {
                 currentBoard.applyMove(moves.get(n));
-                moveHistory.add(moves.get(n));
-                if (Math.abs(currentBoard.getValue()) == 1000000) {
-                    System.out.println(
-                            "Game has ended. Player " + (currentBoard.getValue() > 0 ? "1" : "2") + " has won.");
-                    showBoard();
-                    break;
-                }
             } catch (Board.InvalidMoveException e) {
-                System.out.println("Not a permitted move");
-                showMoves();
+                System.err.println("Invalid move: " + e.getMessage());
+            }
+            if (currentBoard.getValidMoves().isEmpty() || Math.abs(currentBoard.getValue()) == 1000000) {
+                break;
             }
         }
     }
@@ -373,7 +363,7 @@ public class BoardTest {
         Random rnd = new Random(seed);
         for (int i = 0; i < stepCount; i++) {
             List<? extends Board.Move> moves = currentBoard.getValidMoves();
-            if (moves.isEmpty()) {
+            if (moves.isEmpty() || Math.abs(currentBoard.getValue()) == 1000000) {
                 int moveNum = rnd.nextInt(moveHistory.size()) + 1;
                 for (int j = 0; j < moveNum; j++) {
                     currentBoard.undoMove();

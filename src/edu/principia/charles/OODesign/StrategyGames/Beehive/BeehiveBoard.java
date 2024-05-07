@@ -200,6 +200,29 @@ public class BeehiveBoard implements Board {
     @Override
     public void applyMove(Move m) throws Board.InvalidMoveException {
         try {
+
+            // check of it is a swap move if it is a swap move then check if it is the first
+            // move
+            // and the current player is player 2 and the swap has not been done before
+            // if all the conditions are met then perform the swap move
+            if (moveHistory.size() == 1 && currentPlayer == 2 && !hasSwapped) {
+                BeeHiveMove move = new BeeHiveMove(BeeHiveMove.class.cast(m));
+                if (move.SWAP || (move.row == -1 && move.col == -1)) {
+                    // Swap the current player
+                    currentPlayer = 3 - currentPlayer;
+                    // Swap the owner of the piece at the last move position
+                    BeeHiveMove lastMove = moveHistory.get(moveHistory.size() - 1);
+                    if (lastMove.row >= 0 && lastMove.row < board.length && lastMove.col >= 0
+                            && lastMove.col < board[0].length) {
+                        board[lastMove.row - 1][lastMove.col - 1].setOwner(currentPlayer);
+                    }
+                    hasSwapped = true;
+                    moveHistory.add(move);
+                    recalculateBridgeGroups();
+                    return;
+                }
+            }
+
             // Check if the game is already over
             if (isGameOver) {
                 throw new Board.InvalidMoveException("Game is over");
@@ -414,7 +437,7 @@ public class BeehiveBoard implements Board {
         // or if the cells are connected by a chain of adjacent cells
 
         // If none of the conditions are met, the bridge is not valid
-        if (firstCell.player == secondCell.player) {
+        if (firstCell.player != secondCell.player) {
             return false;
         }
 
@@ -630,6 +653,18 @@ public class BeehiveBoard implements Board {
                     cellRepresentation = isInWinningGroup ? 'B' : 'b'; // Uppercase 'B' for winning path, else 'b'
                 } else if (cell.player == 2) {
                     cellRepresentation = isInWinningGroup ? 'R' : 'r'; // Uppercase 'R' for winning path, else 'r'
+                }
+                // If players have swapped, swap the cell representation
+                if (hasSwapped) {
+                    if (cellRepresentation == 'b') {
+                        cellRepresentation = 'r';
+                    } else if (cellRepresentation == 'r') {
+                        cellRepresentation = 'b';
+                    } else if (cellRepresentation == 'B') {
+                        cellRepresentation = 'R';
+                    } else if (cellRepresentation == 'R') {
+                        cellRepresentation = 'B';
+                    }
                 }
 
                 sb.append(cellRepresentation).append(" "); // Add cell representation and space for next cell
