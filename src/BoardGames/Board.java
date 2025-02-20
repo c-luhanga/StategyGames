@@ -7,8 +7,8 @@ import java.util.List;
 // Represents a game board. The board is responsible for maintaining the state 
 // of the game and enforcing the rules of the game.  
 public interface Board {
-   public static final int PLAYER_0 = 1;
-   public static final int PLAYER_1 = -1;
+   public static final int PLAYER_1 = 1;
+   public static final int PLAYER_2 = -1;
    public static final int WIN = 1000000;
 
    // Represents one Move on the board.

@@ -24,7 +24,7 @@ class peg5test {
                 assertEquals(0, board.getBoard()[row][col], "Board should be initialized to empty");
             }
         }
-        assertEquals(Board.PLAYER_0, board.getCurrentPlayer(), "Initial player should be PLAYER_0");
+        assertEquals(Board.PLAYER_1, board.getCurrentPlayer(), "Initial player should be PLAYER_0");
     }
 
     @Test

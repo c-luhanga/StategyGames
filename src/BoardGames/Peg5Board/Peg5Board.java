@@ -51,11 +51,10 @@ public class Peg5Board implements Board {
 
     }
 
-    private int currentPlayer = Board.PLAYER_0;
+    private int currentPlayer = Board.PLAYER_1;
     private List<Peg5Move> moveHistory = new ArrayList<>();
-    // Assuming a 7x7 board for Peg5
-    private int[][] board = new int[7][7]; // Initialize as needed
 
+    // Assuming a 7x7 board for Peg5
     @Override
     public Move createMove() {
         return new Peg5Move();
