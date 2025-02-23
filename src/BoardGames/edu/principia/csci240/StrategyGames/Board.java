@@ -1,4 +1,4 @@
-package BoardGames.edu.principia.csci240.StrategyGames;
+package boardgames.edu.principia.csci240.strategygames;
 
 import java.io.InputStream;
 import java.io.OutputStream;

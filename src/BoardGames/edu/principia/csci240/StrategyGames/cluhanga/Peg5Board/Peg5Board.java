@@ -1,4 +1,4 @@
-package BoardGames.edu.principia.csci240.StrategyGames.cluhanga.Peg5Board;
+package boardgames.edu.principia.csci240.strategygames.cluhanga.Peg5Board;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -8,7 +8,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-import BoardGames.edu.principia.csci240.StrategyGames.Board;
+import boardgames.edu.principia.csci240.strategygames.Board;
 
 public class Peg5Board implements Board {
     public class Peg5Move implements Board.Move {

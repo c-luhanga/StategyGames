@@ -1,9 +1,9 @@
-package BoardGames.edu.principia.csci240.StrategyGames.cluhanga.Peg5Board;
+package boardgames.edu.principia.csci240.strategygames.cluhanga.Peg5Board;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import BoardGames.edu.principia.csci240.StrategyGames.Board;
+import boardgames.edu.principia.csci240.strategygames.Board;
 
 import static org.junit.jupiter.api.Assertions.*;
 

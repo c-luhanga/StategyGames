@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Run TTTBoard",
+            "request": "launch",
+            "mainClass": "boardgames.edu.principia.csci240.strategygames.BoardDriver",
+            "args": "boardgames.edu.principia.csci240.strategygames.cluhanga.tictactoe.TTTBoard",
+            "cwd": "${workspaceFolder}",
+            "classPaths": ["${workspaceFolder}/bin"],
+            "sourcePaths": ["${workspaceFolder}/src"]
+        }
+    ]
+}

@@ -1,4 +1,4 @@
-package BoardGames.edu.principia.csci240.StrategyGames.cluhanga.Peg5Board;
+package boardgames.edu.principia.csci240.strategygames.cluhanga.Peg5Board;
 
 public class Position {
     private int row;

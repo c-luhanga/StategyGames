@@ -1,4 +1,4 @@
-package BoardGames.edu.principia.csci240.StrategyGames.cluhanga.BeehiveBoard;
+package boardgames.edu.principia.csci240.strategygames.cluhanga.BeehiveBoard;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,9 +9,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import BoardGames.edu.principia.csci240.StrategyGames.Board;
-import BoardGames.edu.principia.csci240.StrategyGames.Board.InvalidMoveException;
-import BoardGames.edu.principia.csci240.StrategyGames.Board.Move;
+import boardgames.edu.principia.csci240.strategygames.Board;
+import boardgames.edu.principia.csci240.strategygames.Board.InvalidMoveException;
+import boardgames.edu.principia.csci240.strategygames.Board.Move;
 
 /**
  * BeehiveBoard Class Development Guide with Integrated Components

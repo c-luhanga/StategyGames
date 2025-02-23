@@ -1,11 +1,11 @@
-package BoardGames.edu.principia.csci240.StrategyGames.cluhanga.TicTacToe;
+package boardgames.edu.principia.csci240.strategygames.cluhanga.tictactoe;
 
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-import BoardGames.edu.principia.csci240.StrategyGames.Board;
+import boardgames.edu.principia.csci240.strategygames.Board;
 
 public class TTTBoard implements Board {
     public class TicTacToeMove implements Move, java.io.Serializable {

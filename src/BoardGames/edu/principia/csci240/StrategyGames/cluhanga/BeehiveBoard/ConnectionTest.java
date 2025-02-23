@@ -1,4 +1,4 @@
-package BoardGames.edu.principia.csci240.StrategyGames.cluhanga.BeehiveBoard;
+package boardgames.edu.principia.csci240.strategygames.cluhanga.BeehiveBoard;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;

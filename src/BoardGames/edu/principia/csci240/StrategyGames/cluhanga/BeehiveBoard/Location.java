@@ -1,4 +1,4 @@
-package BoardGames.edu.principia.csci240.StrategyGames.cluhanga.BeehiveBoard;
+package boardgames.edu.principia.csci240.strategygames.cluhanga.BeehiveBoard;
 
 /**
  * Location Class Development Guide for Beehive Game
